@@ -55,19 +55,24 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The previous Windows working directory passed 42 offline tests. A fresh
+The Windows project currently passes 48 offline tests (including the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 
 ## Remaining tasks
 
-1. Identify the actual RDR2 PS4 1.32 eboot.bin/ELF and Title ID (CUSAxxxxx)
-   from the user's own copy. No decrypted eboot is provided here.
-2. Find and validate the actual RAGE fiDevice/RPF8 or XML/META loader
-   entrypoints for PS4 1.32; verify calling convention, return type,
-   pointer lifetime, method offsets and original trampolines.
+1. A user-supplied RDR2 PS4 ELF was inspected privately (121670745 bytes,
+   SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff).
+   The ELF itself must never be uploaded. Its exact patch and CUSA still need
+   verification on the console. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
+   tools/inspect_rdr2_eboot.py for reproducible static evidence.
+2. The upload contains fiPackfile8 RTTI/vtable RVA 0x066B00F8 and a candidate
+   Open at 0x0452A480. Four method entrypoints and six vtable pointers are
+   checked by runtime/rage_eboot_profile.c (compiled into Orbis PRX).
+   Complete ABI analysis and original trampolines still require live verification.
 3. Protect hooks with version fingerprints and exact entry bytes; never
    reuse RDR2 1.00 offsets without checking them on 1.32.
+   NEVER activate a hook just because the new guard matches this ELF.
 4. Route ALL operations on overlay tokens, not just file Open:
    read, seek, size, stat, close. Never pass synthetic bridge tokens
    to unmodified engine functions.
@@ -85,3 +90,11 @@ for full test coverage; missing build outputs can cause skips or errors.
   access tokens, local logs or other sensitive machine information.
 - Never modify unrelated original LML distribution files.
 - Keep tests and status docs truthful about simulated vs console-tested work.
+
+## Static EBOOT analysis (October 2026)
+
+A small, sanitized RAGE fiPackfile8 profile is included. The proprietary
+121.7 MB EBOOT was analyzed outside GitHub and was not checked into the repo.
+The candidate addresses are specific to its fingerprint, not validated
+RDR2 1.32 PS5 hooks. The current PRX has 19 exports and the actual
+hook-installed status remains false.

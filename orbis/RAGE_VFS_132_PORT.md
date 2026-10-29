@@ -86,9 +86,11 @@ pile) et ne doit pas réentrer dans le hook.
 
 ## Conditions exactes pour ACTIVER le hook sur RDR2 1.32
 
-Il manque un **eboot.bin/ELF PS4 1.32 lisible** (issu de la propre copie
-du jeu), un Title ID CUSA spécifique, ainsi qu'un test loader réussi sur
-la PS5 13.60.
+Un EBOOT/ELF PS4 lisible a maintenant été fourni et analysé séparément :
+121 670 745 octets, SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff.
+Voir EBOOT_RAGE_VFS_PROFILE.md pour les RTTI/vtables et RVA fiPackfile8
+candidats. Il manque encore la confirmation de sa version, le Title ID CUSA,
+le contrôle du chargeur en jeu, l'ABI complète et le trampoline.
 
 La validation doit permettre de déterminer :
 1. La vraie adresse et signature de fiDevice Open/OpenBulk et des méthodes
@@ -103,7 +105,8 @@ La validation doit permettre de déterminer :
 6. La validation d'un unique remplacement non critique et réellement
    compatible avec le format attendu par le jeu, en mode Histoire hors ligne.
 
-Aucun eboot PS4 1.32 n'a été trouvé dans le dossier modloader fourni.
+Le fichier du jeu n'est volontairement PAS stocké dans le dépôt public.
+Seuls le fingerprint et les candidats dérivés ont été conservés.
 Ce module reste donc un composant de liaison : installer le PRX seul ne
 remplacera **aucun fichier** du vrai jeu.
 
@@ -133,3 +136,14 @@ binaires du jeu.
 
 Pas de test console, pas de validation du hook réel, pas de conversion
 généralisée d'ASI Windows vers Orbis.
+
+## Mise à jour : EBOOT fourni le 29 octobre 2026
+
+La vtable fiPackfile8 est à RVA 0x066B00F8 avec candidat Open
+0x0452A480 (this/path/readOnly), candidat OpenBulk 0x0452A780 et
+lectures candidates 0x0452B9D0 / 0x0452BA60. Le code
+runtime/rage_eboot_profile.c vérifie ces adresses en lecture seule,
+avec rejet de mauvaises signatures/bases. Le PRX exporte désormais
+lml_eboot_verify_profile mais ne pose toujours aucun hook RAGE.
+La version précise de l'exécutable et la mise à jour 1.32 de la
+console restent à rapprocher avant de toucher à la mémoire du jeu.

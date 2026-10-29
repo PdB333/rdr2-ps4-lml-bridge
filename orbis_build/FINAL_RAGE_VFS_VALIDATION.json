@@ -1,28 +1,35 @@
 {
-  "target": "RDR2 PS4 1.32 / PS5 13.60",
-  "status": "RAGE_VFS_READTHROUGH_TESTED_HOOK_NOT_ACTIVATED_IN_GAME",
-  "offline_unittest_tests": 42,
+  "target": "RDR2 PS4 (user-stated update 1.32) / PS5 13.60",
+  "status": "RAGE_VFS_READTHROUGH_AND_EBOOT_PROFILE_OFFLINE_TESTED_NO_GAME_HOOK",
+  "offline_unittest_tests": 48,
   "host_emulated_game_original_RPF8_backend": true,
   "host_replacement_bytes_verified": true,
   "host_fallback_to_original_verified": true,
   "portable_path_loader_hook_body_tested": true,
   "actual_game_RPF8_hook_installed": false,
-  "game_eboot_1_32_inspected": false,
+  "game_eboot_upload_inspected": true,
+  "game_eboot_upload_bytes": 121670745,
+  "game_eboot_upload_sha256": "e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff",
+  "game_eboot_title_id_verified": false,
+  "game_eboot_update_1_32_verified": false,
+  "eboot_fiPackfile8_vtable_rva": "0x066B00F8",
+  "eboot_fiPackfile8_open_candidate_rva": "0x0452A480",
+  "eboot_fiPackfile8_openbulk_candidate_rva": "0x0452A780",
+  "eboot_fiPackfile8_read_candidate_rva": "0x0452B9D0",
+  "eboot_fiPackfile8_readbulk_candidate_rva": "0x0452BA60",
+  "profile_memory_identity_guard_in_orbis_prx": true,
+  "profile_guard_actual_user_elf_static_check_passed": true,
+  "profile_guard_corrupted_code_and_bad_base_rejected": true,
   "console_tested": false,
   "adapter": {
     "file": "LmlBridge_132_rage_vfs_adapter.prx",
-    "bytes": 1406128,
-    "sha256": "371e05daf2577f9e3f8cfd87d4b7e6281dac4dc111864f27a11a735fc3b21316",
-    "exports": 18,
-    "orbis_self_magic": "4f153d1d"
+    "bytes": 1406160,
+    "sha256": "f30c6418afb92629b84520c9279a3ffeb1a76bcf750535a57097b14f777d15a9",
+    "exported_symbols": 19,
+    "orbis_self_magic": "4f153d1d",
+    "published_in_git": false
   },
-  "kit": {
-    "file": "LML_BRIDGE_RDR2_132_RAGE_VFS_DEVKIT.zip",
-    "bytes": 1016816,
-    "sha256": "9609306db444a8328b744f7edbc28c779e9b8c162b84871246c49def10799534",
-    "entries": 17
-  },
-  "original_vfs_asi_unchanged": true,
-  "original_vfs_sha256": "b54021d4f86b2136ef371a8ec0a8c05e98717605f27caf9c06f5893070cca918",
-  "known_blocker": "No decrypted/title-verified RDR2 PS4 1.32 eboot to identify fiDevice/XML-loader trampoline address or ABI; PS5 game PRX loader test not observed"
+  "original_LML_files_modified": false,
+  "proprietary_eboot_published": false,
+  "remaining_blocker": "Verify update/Title ID match of in-memory game, hook loader compatibility, complete fiDevice ABI and virtual handle operations, implement reversible fail-closed method interception in RDR2 PS4, run on console."
 }

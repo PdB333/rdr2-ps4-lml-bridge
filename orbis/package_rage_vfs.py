@@ -13,11 +13,12 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "LML_BRIDGE_RDR2_132_RAGE_VFS_DEVKIT.zip"
+OUT = ROOT / "LML_BRIDGE_RDR2_132_EBOOT_PROFILE_DEVKIT.zip"
 FILES = (
     "README.md",
     "PORTING_STATUS.md",
     "orbis/RAGE_VFS_132_PORT.md",
+    "orbis/EBOOT_RAGE_VFS_PROFILE.md",
     "orbis/CONSOLE_DIAGNOSTIC.md",
     "orbis/build_rage_vfs.ps1",
     "orbis/rage_vfs_module.c",
@@ -26,11 +27,19 @@ FILES = (
     "runtime/overlay_index.cpp",
     "runtime/rage_vfs_redirect.h",
     "runtime/rage_vfs_redirect.cpp",
+    "runtime/rage_eboot_profile.h",
+    "runtime/rage_eboot_profile.c",
+    "runtime/rage_eboot_profile_harness.c",
+    "tools/inspect_rdr2_eboot.py",
     "runtime/rage_vfs_harness.cpp",
     "tests/test_rage_vfs.py",
+    "tests/test_eboot_profile.py",
+    "tests/test_eboot_inspector.py",
     "orbis_build/rage_vfs_report.json",
+    "orbis_build/FINAL_RAGE_VFS_VALIDATION.json",
     "orbis_build/LmlBridge_132_rage_vfs_adapter.prx",
     "orbis_build/rage_vfs_harness.exe",
+    "orbis_build/rage_eboot_profile_harness.exe",
 )
 
 
@@ -69,6 +78,10 @@ def main() -> None:
         "purpose": "Orbis adapter + offline-tested read-through RAGE VFS replacement engine",
         "in_game_hook_installed": False,
         "eboot_132_verified": False,
+        "uploaded_orbis_eboot_static_analysis_done": True,
+        "uploaded_eboot_sha256": "e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff",
+        "profile_guard_implemented": True,
+        "host_tests_passed": 48,
         "tested_on_ps5": False,
         "original_game_files_modified": False,
         "contains_third_party_lml_binaries": False,

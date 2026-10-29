@@ -27,6 +27,7 @@ $cxxArgs=@('-std=c++17','-fexceptions','-nostdinc++',
 $source=@(
     @{Tool=$clangxx; Args=$cxxArgs; Name='rage_overlay_index'; File=(Join-Path $project 'runtime\overlay_index.cpp')},
     @{Tool=$clangxx; Args=$cxxArgs; Name='rage_vfs_redirect'; File=(Join-Path $project 'runtime\rage_vfs_redirect.cpp')},
+    @{Tool=$clang; Args=@('-std=c11'); Name='rage_eboot_profile'; File=(Join-Path $project 'runtime\rage_eboot_profile.c')},
     @{Tool=$clang; Args=@('-std=c11'); Name='rage_vfs_module'; File=(Join-Path $PSScriptRoot 'rage_vfs_module.c')}
 )
 $objects=@()
@@ -43,6 +44,7 @@ $prx=Join-Path $build 'LmlBridge_132_rage_vfs_adapter.prx'
 $link=@('-m','elf_x86_64','-pie','--script',(Join-Path $sdk 'link.x'),
         '--eh-frame-hdr','--no-undefined','-e','_init',
         '--export-dynamic-symbol=lml_rage_*',
+        '--export-dynamic-symbol=lml_eboot_*',
         '--export-dynamic-symbol=module_start',
         '--export-dynamic-symbol=module_stop',
         '-o',$elf) + $objects + @(
@@ -70,7 +72,8 @@ $symbols=@(
     'lml_rage_get_counters',
     'lml_rage_clear',
     'lml_rage_game_hook_installed',
-    'lml_rage_module_index_status'
+    'lml_rage_module_index_status',
+    'lml_eboot_verify_profile'
 )
 foreach($symbol in $symbols){
     if($dynamic -notmatch ('(?m)\b'+[regex]::Escape($symbol)+'\s*$')){
@@ -91,7 +94,7 @@ if($raw.Length -lt 128 -or $raw[0] -ne 0x4f -or $raw[1] -ne 0x15 -or
 $report=[ordered]@{
     format='lml-rage-vfs-adapter-prx/1'
     target='RDR2 PS4 1.32 on PS5 13.60'
-    file=$prx
+    file=('orbis_build/'+[IO.Path]::GetFileName($prx))
     bytes=$raw.Length
     sha256=(Get-FileHash -LiteralPath $prx -Algorithm SHA256).Hash.ToLowerInvariant()
     exports=$symbols
@@ -100,6 +103,10 @@ $report=[ordered]@{
     original_callbacks_required=$true
     actual_rage_hook_installed=$false
     title_verified_eboot_offsets_available=$false
+    eboot_static_profile_available=$true
+    profile_source_sha256='e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff'
+    profile_rva_verification_exported=$true
+    game_patch_version_confirmed=$false
     tested_on_ps5=$false
     read_only_replacement_only=$true
     original_rpf_archives_modified=$false

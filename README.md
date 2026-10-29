@@ -9,7 +9,7 @@ Cible : RDR2 **version PS4 1.32**, sur **PS5 jailbreakée firmware 13.60**.
 - compiler.py : lit les install.xml, valide et prépare des dossiers d'assets, sans exécuter les binaires d'origine
 - runtime/overlay_index.hpp et runtime/overlay_index.cpp : moteur C++17 portable de résolution de chemins, sans dépendances Windows ni injection dans le jeu
 - runtime/overlay_probe.cpp : banc de test Windows du moteur C++, pas un exécutable PlayStation
-- tests/ : 42 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
+- tests/ : 48 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
 - staged_samples_v2/catalog.json : catalogue complet des ressources et avertissements d'intégration
 - staged_samples_v2/overlay.map : table compacte pour le moteur C++ portable
 - staged_samples_v2/payload : copies octet pour octet des 14 ressources d'exemple
@@ -22,8 +22,10 @@ Cible : RDR2 **version PS4 1.32**, sur **PS5 jailbreakée firmware 13.60**.
 - orbis/CONSOLE_DIAGNOSTIC.md : mode opératoire, journaux attendus, problème connu du chargeur RDR2 13.60
 - runtime/rage_vfs_redirect.h et .cpp : moteur C++17 d'interception des opérations virtuelles (open/read/read_at/seek/size/close/stat) et substitution des chemins XML/META/OMT/DAT, avec retour aux appels RPF8 d'origine
 - runtime/rage_vfs_harness.cpp : vrai remplacement d'octets simulé avec faux backend RPF8, tests de repli, tailles et handles
-- orbis_build/LmlBridge_132_rage_vfs_adapter.prx : adaptateur Orbis compilé avec 18 symboles exportés, **sans installation de hook dans le véritable EBOOT du jeu**
+- orbis_build/LmlBridge_132_rage_vfs_adapter.prx : adaptateur Orbis compilé avec 19 symboles exportés, dont un contrôle de l'identité de l'ELF, **sans installation de hook dans le véritable EBOOT du jeu**
 - orbis/RAGE_VFS_132_PORT.md : architecture détaillée du hook RAGE, limites des formats et prérequis exacts de la version PS4 1.32
+- orbis/EBOOT_RAGE_VFS_PROFILE.md et tools/inspect_rdr2_eboot.py : analyse statique d'un ELF PS4 fourni, vtable fiPackfile8, RVA candidats et vérification par fingerprint sans publier le jeu
+- runtime/rage_eboot_profile.c et .h : garde-fou en lecture seule compilé dans le PRX pour refuser les versions ou bases incompatibles
 
 Les fichiers originaux ModLoader/vfs.asi, ModManager.* et les autres binaires n'ont pas été modifiés.
 
@@ -36,7 +38,7 @@ Cinq exemples convertis, soit 14 ressources et 20 164 930 octets, vérifiés par
 | FileReplacement | 8 chemins |
 | StreamingFile | 2 fichiers |
 | DataFile | 4 déclarations |
-| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 42 réussis |
+| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 48 réussis |
 
 Classification du contenu :
 - 9 ressources .ymt/.ymap/.ytyp/.ymf contenant du XML (sérialisation/compatibilité RAGE-PSO manquante)
@@ -81,7 +83,7 @@ Les types pris en charge par ce prototype sont FileReplacement, StreamingFile, D
 
 1. **Vérifier sur PS5 13.60** le chargement d'un PRX minimal dans RDR2 PS4 1.32. Un signalement du 25 octobre 2026 décrit une erreur mprotect dans le chargeur etaHEN pour RDR2 CUSA08519.
 2. **Compilation PS4/Orbis réalisée :** OpenOrbis 0.5.4 et LLVM 18.1.8 produisent les deux sondes nouvelles avec module_start exporté. Le chargement réel dans le jeu reste non testé.
-3. **RAGE VFS : adaptateur de remplacement développé et testé hors jeu.** Pour activer son hook dans le jeu PS4 1.32, il reste à identifier les méthodes RAGE de cette version dans l'EBOOT/ELF et à implémenter le trampoline avec vérification des signatures et des handles. Le fichier update:/... n'est pas un chemin POSIX.
+3. **RAGE VFS : adaptateur de remplacement développé et testé hors jeu.** Un ELF PS4 fourni a permis de localiser des candidats fiPackfile8/Open et de compiler un contrôle d'identité. Il reste à établir que cet ELF correspond bien à la version 1.32 de la console, à confirmer toute l'ABI des méthodes puis à installer/tester le trampoline réel. Le fichier update:/... n'est pas un chemin POSIX.
 4. Fournir la capacité de déclarer les assets en streaming et les types de DataFile dans le moteur RDR2, ainsi que les ressources XML/RAGE/PSO et tables de chaînes.
 5. Tester un seul remplacement réversible dans RDR2 en mode histoire, hors ligne, avant d'ajouter les autres fonctions.
 

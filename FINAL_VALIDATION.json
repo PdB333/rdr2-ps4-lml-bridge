@@ -1,0 +1,18 @@
+{
+  "status": "offline_port_components_verified",
+  "date": "2026-10-28",
+  "tests_passed": 12,
+  "mods": 5,
+  "asset_entries": 14,
+  "asset_bytes": 20164930,
+  "rdr2_xml_rage_resources_require_runtime_conversion": 9,
+  "original_vfs_asi_sha256": "b54021d4f86b2136ef371a8ec0a8c05e98717605f27caf9c06f5893070cca918",
+  "source_binaries_unchanged": true,
+  "cpp_host_resolver_compiles_and_runs": true,
+  "zip_name": "LML_BRIDGE_LOCAL_PROTOTYPE.zip",
+  "zip_entries": 25,
+  "zip_sha256": "99f89bf938c0fd4ba25b1beec88af2ba76a045a3458d781501d429f8da8a5f10",
+  "ps4_prx_built": false,
+  "rdr2_ps4_process_hook_built": false,
+  "tested_on_ps5": false
+}

@@ -1,0 +1,15 @@
+﻿Status: regression and asset validation passed
+Tests: 12/12
+Mods: 5
+Resources: 14
+RAGE XML: 9
+XML metadata: 3
+LML text tables: 1
+RSC8 binary: 1
+Original LML binaries were not changed
+ModLoader/vfs.asi b54021d4f86b2136ef371a8ec0a8c05e98717605f27caf9c06f5893070cca918
+ModLoader/ModManager.Core.dll af7414144c9fe726bee4b8031024758cf92b25917deed41c7d76fa1a056a4a65
+ModLoader/ModManager.NativeInterop.dll 9ba96b8d9df870e94ff6acb5c9a18403f4d09fd014d5d5e54d0674c2738efd0f
+ModManager/ModManager.UI.exe b59ce2b055a538a8a4c4418f6cfc8e8c861b576c39d5a54f328016d24039353d
+ps4_lml_bridge/staged_samples_v2/catalog.json 9e16544ebcc562fc5837b32d0a78b442e355792d63721bfca2d18114813bc8b5
+ps4_lml_bridge/staged_samples_v2/overlay.map 44ecc0db1ec46a3b3ed92b70855325a75c2335bccb020118b37fe4ec7a1b73b7

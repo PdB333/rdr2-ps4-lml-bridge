@@ -1,0 +1,39 @@
+# Do not publish SDKs, proprietary game files, LML distributions or sample mods.
+.toolchains/
+staged_samples/
+staged_samples_v2/
+*.zip
+
+# Build products and local machine data
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pdb
+*.obj
+*.o
+*.oelf
+*.elf
+*.exe
+*.dll
+*.asi
+*.sprx
+*.self
+*.pkg
+*.rpf
+*.rpf8
+*.bin
+*.log
+*.tmp
+*.bak
+*.orig
+.DS_Store
+.vs/
+.vscode/
+.idea/
+
+# Build all PRX files locally; do not commit binaries with embedded paths.
+orbis_build/*
+!orbis_build/readonly_diag_report.json
+!orbis_build/runtime_probe_report.json
+!orbis_build/rage_vfs_report.json
+!orbis_build/FINAL_RAGE_VFS_VALIDATION.json

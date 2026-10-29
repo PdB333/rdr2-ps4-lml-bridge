@@ -1,0 +1,33 @@
+{
+  "format": "lml-orbis-runtime-loader-probe/1",
+  "game": "RDR2 PS4 1.32",
+  "console_firmware": "PS5 13.60",
+  "module": "orbis_build/LmlBridge_132_runtime_probe.prx",
+  "sha256": "4e4967244ec25a7d04e6fcbfede6101fce716a3edaf7c4da9e84ef839c5f635c",
+  "bytes": 1388944,
+  "exported_symbols": [
+    "module_start",
+    "module_stop",
+    "lml_bridge_abi_version",
+    "lml_bridge_open",
+    "lml_bridge_lookup_replace",
+    "lml_bridge_lookup_stream",
+    "lml_bridge_lookup_data",
+    "lml_bridge_get_counts",
+    "lml_bridge_get_last_error",
+    "lml_runtime_last_init_result"
+  ],
+  "dynamic_libraries": [
+    "libkernel.so",
+    "libSceLibcInternal.so"
+  ],
+  "map_path": "/data/etaHEN/lml_bridge/overlay.map",
+  "root_path": "/data/etaHEN/lml_bridge",
+  "module_start_exported": true,
+  "cpp_constructor_array_called_in_module_start": true,
+  "reads_map_on_start": true,
+  "patches_game_memory": false,
+  "hooks_RAGE_RPF": false,
+  "tested_on_console": false,
+  "validated_in_game": false
+}

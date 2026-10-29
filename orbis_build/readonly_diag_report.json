@@ -1,0 +1,29 @@
+{
+  "format": "lml-ps4-orbis-readonly-diagnostic/1",
+  "target_game": "RDR2 PS4 1.32",
+  "target_firmware": "PS5 13.60",
+  "module": "orbis_build/LmlBridge_132_readonly_diagnostic.prx",
+  "bytes": 53072,
+  "sha256": "f6a12535f6b244de05fa5882e073f3894c744d165979a0a335a4aa08224cb364",
+  "exported_symbols": [
+    "module_start",
+    "module_stop",
+    "lml_diag_identity",
+    "lml_diag_abi_version",
+    "lml_diag_last_status"
+  ],
+  "dynamic_needed": [
+    "libkernel.so"
+  ],
+  "default_map_path": "/data/etaHEN/lml_bridge/overlay.map",
+  "emitted_logs": [
+    "MODULE_ENTRY",
+    "MAP_OK|MAP_UNAVAILABLE|MAP_BAD_*",
+    "MODULE_STOP"
+  ],
+  "reads_game_files": false,
+  "writes_any_files": false,
+  "patches_game_memory": false,
+  "has_RAGE_file_hooks": false,
+  "console_tested": false
+}

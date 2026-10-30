@@ -61,15 +61,16 @@ for full test coverage; missing build outputs can cause skips or errors.
 
 ## Remaining tasks
 
-1. A user-supplied RDR2 PS4 ELF was inspected privately (121670745 bytes,
+1. A user-supplied **RDR2 PS4 1.00** ELF was inspected privately (121670745 bytes,
    SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff).
-   The ELF itself must never be uploaded. Its exact patch and CUSA still need
-   verification on the console. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
+   The ELF itself must never be uploaded. The user explicitly confirmed it is
+   version 1.00, NOT 1.32. The Title ID CUSA remains unknown. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
    tools/inspect_rdr2_eboot.py for reproducible static evidence.
-2. The upload contains fiPackfile8 RTTI/vtable RVA 0x066B00F8 and a candidate
-   Open at 0x0452A480. Four method entrypoints and six vtable pointers are
-   checked by runtime/rage_eboot_profile.c (compiled into Orbis PRX).
-   Complete ABI analysis and original trampolines still require live verification.
+2. The **1.00** upload contains fiPackfile8 RTTI/vtable RVA 0x066B00F8
+   and candidate Open at 0x0452A480. runtime/rage_eboot_profile.c now requires
+   (game_major=1, game_minor=0), rejecting 1.32 before any memory read.
+   These 1.00 offsets are NOT verified for 1.32. Complete ABI analysis,
+   original trampolines and a separate 1.32 EBOOT are still needed.
 3. Protect hooks with version fingerprints and exact entry bytes; never
    reuse RDR2 1.00 offsets without checking them on 1.32.
    NEVER activate a hook just because the new guard matches this ELF.
@@ -93,8 +94,7 @@ for full test coverage; missing build outputs can cause skips or errors.
 
 ## Static EBOOT analysis (October 2026)
 
-A small, sanitized RAGE fiPackfile8 profile is included. The proprietary
-121.7 MB EBOOT was analyzed outside GitHub and was not checked into the repo.
-The candidate addresses are specific to its fingerprint, not validated
-RDR2 1.32 PS5 hooks. The current PRX has 19 exports and the actual
+A small, sanitized **RDR2 PS4 1.00 ONLY** fiPackfile8 profile is included.
+The proprietary 121.7 MB EBOOT was analyzed outside GitHub and was not
+checked into the repo. NEVER apply its 1.00 offsets to game update 1.32. The current PRX has 19 exports and the actual
 hook-installed status remains false.

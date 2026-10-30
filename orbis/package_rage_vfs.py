@@ -13,7 +13,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "LML_BRIDGE_RDR2_132_EBOOT_PROFILE_DEVKIT.zip"
+OUT = ROOT / "LML_BRIDGE_RDR2_PS4_100_EBOOT_PROFILE_DEVKIT.zip"
 FILES = (
     "README.md",
     "PORTING_STATUS.md",
@@ -67,6 +67,8 @@ def main() -> None:
         raise RuntimeError("Orbis SELF header missing")
     if digest(binary) != report["sha256"] or len(binary) != report["bytes"]:
         raise RuntimeError("PRX SHA-256/size does not match the build report")
+    if report.get("profile_source_game_version") != "1.00" or report.get("profile_supports_target_game_1_32") is not False:
+        raise RuntimeError("This EBOOT fingerprint is valid for PS4 v1.00 only, not 1.32")
     for field in ("actual_rage_hook_installed", "tested_on_ps5",
                   "title_verified_eboot_offsets_available"):
         if report[field] is not False:
@@ -74,7 +76,10 @@ def main() -> None:
 
     manifest = {
         "format": "rdr2-lml-rage-vfs-readthrough-devkit/1",
-        "game": "RDR2 PS4 1.32 running on PS5 13.60",
+        "target_game": "RDR2 PS4 1.32 on PS5 13.60 (requires separate 1.32 EBOOT)",
+        "analyzed_eboot_version_confirmed_by_user": "1.00",
+        "eboot_profile_compatible_with_1_32": False,
+        "profile_guard_explicitly_rejects_patch_1_32": True,
         "purpose": "Orbis adapter + offline-tested read-through RAGE VFS replacement engine",
         "in_game_hook_installed": False,
         "eboot_132_verified": False,

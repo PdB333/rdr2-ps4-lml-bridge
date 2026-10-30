@@ -23,6 +23,9 @@ from pathlib import Path
 
 HEADER = struct.Struct("<16sHHIQQQIHHHHHH")
 PROGRAM = struct.Struct("<IIQQQQQQ")
+# This particular hash was identified by the owner as RDR2 PS4 1.00.
+# Never infer a patch from a matching RTTI symbol alone.
+USER_CONFIRMED_100_SHA256 = "e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff"
 TYPES = {
     "fiDevice": "N4rage8fiDeviceE",
     "fiPackfile7": "N4rage11fiPackfile7E",
@@ -157,11 +160,16 @@ def inspect(path: Path, expected_hash: str) -> dict:
             "input_filename": path.name,
             "bytes": len(raw), "sha256": digest,
             "confirmed_patch": None, "confirmed_title_id": None,
+            "user_reported_patch": "1.00" if digest == USER_CONFIRMED_100_SHA256 else None,
+            "known_profile_compatible_with_1_32": False if digest == USER_CONFIRMED_100_SHA256 else None,
             "hook_installed": False,
             "elf": image.header,
             "classes": {name: image.locate(symbol)
                         for name, symbol in TYPES.items()},
-            "warning": "Static candidate RVAs only; game patch, live loader and ABI must be verified before hooking.",
+            "warning": ("Owner identified this exact EBOOT as PS4 1.00; its RVAs MUST NOT be used for 1.32. "
+                        "Runtime loader and calling conventions remain unverified."
+                        if digest == USER_CONFIRMED_100_SHA256 else
+                        "Static candidate RVAs only; game patch, live loader and ABI must be verified before hooking."),
         }
 
 

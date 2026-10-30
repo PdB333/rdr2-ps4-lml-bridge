@@ -11,6 +11,7 @@ typedef struct Input {
     int corrupt_vtable;
     int corrupt_type;
     int deny_read;
+    int read_calls;
 } Input;
 
 static const unsigned char kType[] = "N4rage11fiPackfile8E";
@@ -44,7 +45,9 @@ static int read_rva(void* user, uint64_t rva, void* output, size_t length) {
     Input* in = (Input*)user;
     unsigned char* bytes = (unsigned char*)output;
     size_t i, j;
-    if (!in || in->deny_read) return -1;
+    if (!in) return -1;
+    ++in->read_calls;
+    if (in->deny_read) return -1;
     if (rva == 0x05D7DE40ULL && length == sizeof(kType)) {
         memcpy(output, kType, sizeof(kType));
         if (in->corrupt_type) bytes[0] ^= 1;
@@ -75,38 +78,46 @@ static int read_rva(void* user, uint64_t rva, void* output, size_t length) {
 int main(void) {
     Input in = {0};
     LmlEbootVfsProfile out = {0};
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, &out) == 0);
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, &out) == 0);
     ASSERT(out.packfile8_vtable_rva == 0x066B00F8ULL);
     ASSERT(out.open_rva == 0x0452A480ULL);
     ASSERT(out.read_candidate_rva == 0x0452B9D0ULL);
 
+    /* Reject 1.32 before using any address from this 1.00 profile. */
+    in.read_calls = 0;
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 32, &out) ==
+           LML_EBOOT_PROFILE_UNSUPPORTED_PATCH && out.open_rva == 0);
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 2, 0, &out) ==
+           LML_EBOOT_PROFILE_UNSUPPORTED_PATCH && out.open_rva == 0);
+    ASSERT(in.read_calls == 0); /* wrong version never touches game memory */
+
     in.corrupt_entry = 1;
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, &out) ==
            LML_EBOOT_PROFILE_MISMATCH && out.open_rva == 0);
     in.corrupt_entry = 0;
 
     in.corrupt_vtable = 1;
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, &out) ==
            LML_EBOOT_PROFILE_MISMATCH && out.open_rva == 0);
     in.corrupt_vtable = 0;
 
     in.corrupt_type = 1;
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, &out) ==
            LML_EBOOT_PROFILE_MISMATCH && out.open_rva == 0);
     in.corrupt_type = 0;
 
     in.deny_read = 1;
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, &out) ==
            LML_EBOOT_PROFILE_READ_FAILED && out.open_rva == 0);
     in.deny_read = 0;
 
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0x100000ULL, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0x100000ULL, 1, 0, &out) ==
            LML_EBOOT_PROFILE_MISMATCH);
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, UINT64_MAX, &out) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, UINT64_MAX, 1, 0, &out) ==
            LML_EBOOT_PROFILE_BAD_ARGUMENT);
-    ASSERT(lml_eboot_verify_profile(NULL, &in, 0, &out) ==
+    ASSERT(lml_eboot_verify_profile(NULL, &in, 0, 1, 0, &out) ==
            LML_EBOOT_PROFILE_BAD_ARGUMENT);
-    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, NULL) ==
+    ASSERT(lml_eboot_verify_profile(read_rva, &in, 0, 1, 0, NULL) ==
            LML_EBOOT_PROFILE_BAD_ARGUMENT);
 
     puts("RDR2_EBOOT_RPF8_PROFILE_GUARD_TESTS_PASSED");

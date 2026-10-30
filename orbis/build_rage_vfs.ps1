@@ -1,5 +1,6 @@
 # Compile the independent RAGE VFS read-through adapter for Orbis/PS4.
-# No game EBOOT offsets are known or patched here.
+# Contains a fingerprint of a user-confirmed RDR2 PS4 1.00 EBOOT only.
+# The 1.32 game hook remains disabled; do not use 1.00 RVAs for 1.32.
 $ErrorActionPreference='Stop'
 $project = Split-Path $PSScriptRoot -Parent
 $build = Join-Path $project 'orbis_build'
@@ -105,6 +106,10 @@ $report=[ordered]@{
     title_verified_eboot_offsets_available=$false
     eboot_static_profile_available=$true
     profile_source_sha256='e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff'
+    profile_source_game_version='1.00'
+    profile_source_version_evidence='user_confirmed'
+    profile_supports_target_game_1_32=$false
+    profile_requires_running_game_version_check=$true
     profile_rva_verification_exported=$true
     game_patch_version_confirmed=$false
     tested_on_ps5=$false

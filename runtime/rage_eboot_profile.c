@@ -1,6 +1,7 @@
 /* Per-EBOOT static fingerprints from an uploaded RDR2 PS4 ELF, read only.
  * SHA-256: e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff
- * Size: 121670745 bytes. Exact game patch and CUSA not yet confirmed.
+ * Size: 121670745 bytes. User confirmed this EBOOT is PS4 v1.00.
+ * CUSA Title ID unknown. Do NOT use these RVAs for PS4 update 1.32.
  * Only 64 bytes of code-entry fingerprints (not proprietary game routines)
  * are recorded here. The actual eboot.bin is NEVER published.
  *
@@ -52,6 +53,8 @@ static uint64_t read_le64(const unsigned char* bytes) {
 
 int lml_eboot_verify_profile(LmlEbootReadRva read_rva, void* ctx,
                             uint64_t image_load_bias,
+                            uint32_t game_version_major,
+                            uint32_t game_version_minor,
                             LmlEbootVfsProfile* verified) {
     static const unsigned char type_name[] = "N4rage11fiPackfile8E";
     unsigned char buffer[32];
@@ -65,6 +68,9 @@ int lml_eboot_verify_profile(LmlEbootReadRva read_rva, void* ctx,
         verified->read_bulk_candidate_rva = 0;
     }
     if (!read_rva || !verified) return LML_EBOOT_PROFILE_BAD_ARGUMENT;
+    /* Do not read version 1.32's code using version 1.00 addresses. */
+    if (game_version_major != 1u || game_version_minor != 0u)
+        return LML_EBOOT_PROFILE_UNSUPPORTED_PATCH;
     if (image_load_bias > UINT64_MAX - 0x066B0480ULL)
         return LML_EBOOT_PROFILE_BAD_ARGUMENT;
 

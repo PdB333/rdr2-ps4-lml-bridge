@@ -1,5 +1,5 @@
 {
-  "target": "RDR2 PS4 (user-stated update 1.32) / PS5 13.60",
+  "target": "Port générique RDR2 PS4, objectif initial 1.32 / PS5 13.60 ; EBOOT analysé = PS4 1.00",
   "status": "RAGE_VFS_READTHROUGH_AND_EBOOT_PROFILE_OFFLINE_TESTED_NO_GAME_HOOK",
   "offline_unittest_tests": 48,
   "host_emulated_game_original_RPF8_backend": true,
@@ -24,12 +24,17 @@
   "adapter": {
     "file": "LmlBridge_132_rage_vfs_adapter.prx",
     "bytes": 1406160,
-    "sha256": "f30c6418afb92629b84520c9279a3ffeb1a76bcf750535a57097b14f777d15a9",
+    "sha256": "966de36f1d210670849e8a3e4468caad35b3bbc0ee70c3d4d033bdcb681668d5",
     "exported_symbols": 19,
     "orbis_self_magic": "4f153d1d",
     "published_in_git": false
   },
   "original_LML_files_modified": false,
   "proprietary_eboot_published": false,
-  "remaining_blocker": "Verify update/Title ID match of in-memory game, hook loader compatibility, complete fiDevice ABI and virtual handle operations, implement reversible fail-closed method interception in RDR2 PS4, run on console."
+  "remaining_blocker": "Current EBOOT is user-confirmed RDR2 PS4 1.00, not 1.32. For 1.32 obtain/analyze a separate exact version EBOOT, verify Title ID and full fiDevice ABI, loader and memory safety before considering a reversible game hook. No in-game interception or PS5 test.",
+  "game_eboot_version_reported_by_user": "1.00",
+  "game_eboot_version_user_confirmation_date": "2026-10-30",
+  "eboot_profile_valid_for_game_1_32": false,
+  "profile_guard_supported_game_patch": "1.00",
+  "profile_guard_refuses_1_32_without_memory_reads": true
 }

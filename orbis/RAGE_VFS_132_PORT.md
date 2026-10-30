@@ -86,11 +86,12 @@ pile) et ne doit pas réentrer dans le hook.
 
 ## Conditions exactes pour ACTIVER le hook sur RDR2 1.32
 
-Un EBOOT/ELF PS4 lisible a maintenant été fourni et analysé séparément :
-121 670 745 octets, SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff.
-Voir EBOOT_RAGE_VFS_PROFILE.md pour les RTTI/vtables et RVA fiPackfile8
-candidats. Il manque encore la confirmation de sa version, le Title ID CUSA,
-le contrôle du chargeur en jeu, l'ABI complète et le trampoline.
+Un EBOOT/ELF PS4 a été fourni et analysé : 121 670 745 octets,
+SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff.
+**Correction utilisateur du 30 octobre 2026 : cet EBOOT est RDR2 PS4 1.00,
+PAS 1.32.** Voir EBOOT_RAGE_VFS_PROFILE.md pour ses RVA fiPackfile8.
+Aucun offset n'a été établi pour la version 1.32. Il faut un EBOOT 1.32
+distinct, le Title ID CUSA, un contrôle du chargeur, l'ABI et le trampoline.
 
 La validation doit permettre de déterminer :
 1. La vraie adresse et signature de fiDevice Open/OpenBulk et des méthodes
@@ -139,11 +140,11 @@ généralisée d'ASI Windows vers Orbis.
 
 ## Mise à jour : EBOOT fourni le 29 octobre 2026
 
-La vtable fiPackfile8 est à RVA 0x066B00F8 avec candidat Open
-0x0452A480 (this/path/readOnly), candidat OpenBulk 0x0452A780 et
-lectures candidates 0x0452B9D0 / 0x0452BA60. Le code
+Dans **l'EBOOT 1.00 seulement**, la vtable fiPackfile8 est à RVA
+0x066B00F8 avec candidat Open 0x0452A480 (this/path/readOnly),
+OpenBulk 0x0452A780 et lectures candidates 0x0452B9D0 / 0x0452BA60. Le code
 runtime/rage_eboot_profile.c vérifie ces adresses en lecture seule,
-avec rejet de mauvaises signatures/bases. Le PRX exporte désormais
-lml_eboot_verify_profile mais ne pose toujours aucun hook RAGE.
+avec rejet de mauvaises signatures/bases et **refus de la version 1.32**.
+Le PRX exporte lml_eboot_verify_profile mais ne pose aucun hook RAGE.
 La version précise de l'exécutable et la mise à jour 1.32 de la
 console restent à rapprocher avant de toucher à la mémoire du jeu.

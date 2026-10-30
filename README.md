@@ -24,8 +24,8 @@ Cible : RDR2 **version PS4 1.32**, sur **PS5 jailbreakée firmware 13.60**.
 - runtime/rage_vfs_harness.cpp : vrai remplacement d'octets simulé avec faux backend RPF8, tests de repli, tailles et handles
 - orbis_build/LmlBridge_132_rage_vfs_adapter.prx : adaptateur Orbis compilé avec 19 symboles exportés, dont un contrôle de l'identité de l'ELF, **sans installation de hook dans le véritable EBOOT du jeu**
 - orbis/RAGE_VFS_132_PORT.md : architecture détaillée du hook RAGE, limites des formats et prérequis exacts de la version PS4 1.32
-- orbis/EBOOT_RAGE_VFS_PROFILE.md et tools/inspect_rdr2_eboot.py : analyse statique d'un ELF PS4 fourni, vtable fiPackfile8, RVA candidats et vérification par fingerprint sans publier le jeu
-- runtime/rage_eboot_profile.c et .h : garde-fou en lecture seule compilé dans le PRX pour refuser les versions ou bases incompatibles
+- orbis/EBOOT_RAGE_VFS_PROFILE.md et tools/inspect_rdr2_eboot.py : analyse statique de l'EBOOT **PS4 1.00** fourni, vtable fiPackfile8 et RVA candidats **strictement 1.00**, jamais transférables tels quels en 1.32
+- runtime/rage_eboot_profile.c et .h : garde-fou en lecture seule compilé dans le PRX ; exige la version 1.00 et refuse explicitement 1.32
 
 Les fichiers originaux ModLoader/vfs.asi, ModManager.* et les autres binaires n'ont pas été modifiés.
 
@@ -83,7 +83,7 @@ Les types pris en charge par ce prototype sont FileReplacement, StreamingFile, D
 
 1. **Vérifier sur PS5 13.60** le chargement d'un PRX minimal dans RDR2 PS4 1.32. Un signalement du 25 octobre 2026 décrit une erreur mprotect dans le chargeur etaHEN pour RDR2 CUSA08519.
 2. **Compilation PS4/Orbis réalisée :** OpenOrbis 0.5.4 et LLVM 18.1.8 produisent les deux sondes nouvelles avec module_start exporté. Le chargement réel dans le jeu reste non testé.
-3. **RAGE VFS : adaptateur de remplacement développé et testé hors jeu.** Un ELF PS4 fourni a permis de localiser des candidats fiPackfile8/Open et de compiler un contrôle d'identité. Il reste à établir que cet ELF correspond bien à la version 1.32 de la console, à confirmer toute l'ABI des méthodes puis à installer/tester le trampoline réel. Le fichier update:/... n'est pas un chemin POSIX.
+3. **RAGE VFS : adaptateur de remplacement développé et testé hors jeu.** L'EBOOT fourni a été confirmé par l'utilisateur comme **PS4 1.00**. Les RVA fiPackfile8/Open et leur contrôle d'identité concernent uniquement ce binaire **1.00** ; le contrôle refuse 1.32. Pour viser 1.32, il manque **son propre EBOOT 1.32**, l'ABI des méthodes et le trampoline à tester. Le fichier update:/... n'est pas un chemin POSIX.
 4. Fournir la capacité de déclarer les assets en streaming et les types de DataFile dans le moteur RDR2, ainsi que les ressources XML/RAGE/PSO et tables de chaînes.
 5. Tester un seul remplacement réversible dans RDR2 en mode histoire, hors ligne, avant d'ajouter les autres fonctions.
 

@@ -1,6 +1,11 @@
-# Analyse RAGE VFS de l'eboot PS4 fourni — profil statique
+# RDR2 PS4 1.00 — analyse statique RAGE VFS de l'EBOOT fourni
 
-Analyse du 29 octobre 2026. Ce document ne contient PAS le binaire du jeu.
+Analyse du 29 octobre 2026, version précisée par l'utilisateur le 30 octobre 2026.
+Ce document ne contient PAS le binaire du jeu.
+
+**Correction : cet EBOOT est celui de RDR2 PS4 version 1.00, pas 1.32.**
+Les adresses qui suivent concernent seulement l'EBOOT 1.00 identifié par
+son empreinte SHA-256 ; ne pas les appliquer à un exécutable 1.32.
 
 ## Identité du fichier
 
@@ -9,9 +14,11 @@ Analyse du 29 octobre 2026. Ce document ne contient PAS le binaire du jeu.
 - Format : ELF type 0xFE10, ABI FreeBSD/Orbis, 11 program headers
 - La table des sections d'origine est absente : e_shoff pointe au-delà
   du fichier. Les segments de chargement sont toutefois présents.
-- IMPORTANT : la version de mise à jour et le Title ID CUSA précis ne
-  sont pas prouvés par le simple contenu de cet ELF. Les adresses
-  ci-dessous sont valables UNIQUEMENT pour ce SHA-256.
+- **Version déclarée par l'utilisateur : RDR2 PS4 1.00.** Le Title ID CUSA
+  n'est pas connu, et l'ELF seul ne donne pas une preuve indépendante de
+  cette version.
+- Ces RVA ne valent que pour ce SHA-256 de l'EBOOT **1.00** : aucun
+  offset de RDR2 PS4 1.32 n'a été déterminé ici.
 
 ## Classes RTTI et tables virtuelles identifiées
 
@@ -42,7 +49,10 @@ de chemin avant l'ouverture du packfile.
 ## Profil de compatibilité intégré au PRX
 
 - runtime/rage_eboot_profile.h et .c
-- Export Orbis : lml_eboot_verify_profile(callback, context, base, out)
+- Export Orbis : lml_eboot_verify_profile(callback, context, base, major, minor, out)
+- Exige explicitement une version du jeu **1.00** (major=1, minor=0).
+  La version 1.32 (major=1, minor=32) est rejetée sans lire la mémoire,
+  sans retourner la moindre adresse candidate.
 - Compare la chaîne RTTI fiPackfile8, son pointeur typeinfo, six
   pointeurs de fonctions et 16 octets à l'entrée de quatre fonctions.
 - Aucun accès mémoire n'est effectué en dehors du callback de lecture,
@@ -69,8 +79,9 @@ du dépôt GitHub public. Les scripts n'envoient aucune donnée sur Internet.
 
 ## Restant pour un vrai hook RAGE / RPF8
 
-1. Confirmer Title ID et mise à jour 1.32 sur la console ; comparer le
-   contenu à cet eboot, sans supposer que les RVA sont universels.
+1. Pour viser la mise à jour 1.32, **obtenir et analyser son propre EBOOT
+   1.32**, distinct de celui-ci, et vérifier le Title ID CUSA de la console.
+   Les RVA 1.00 ne sont pas une base de hook 1.32.
 2. Déterminer les vraies signatures d'appel des fonctions read, seek,
    close, size et stat ; ne jamais retourner un token synthétique du
    bridge à une méthode RAGE non détournée.
@@ -84,8 +95,9 @@ du dépôt GitHub public. Les scripts n'envoient aucune donnée sur Internet.
    Les ressources RAGE XML/PSO et le streamer requièrent encore une
    sérialisation / un enregistrement spécifique.
 
-**Statut : vraies fonctions RPF8 identifiées statiquement dans l'ELF,
-profil de contrôle compilé, mais aucun hook dans le jeu ni test PS5.**
+**Statut : candidates RPF8 identifiées statiquement dans un EBOOT PS4
+1.00 selon l'utilisateur. Profil de contrôle versionné et compilé ; aucun
+hook dans le jeu ni test PS5. Compatibilité RDR2 PS4 1.32 : NON établie.**
 
 Référence d'interface fiDevice générale (GTA/FiveM, pas PS4 RDR2) :
 https://github.com/citizenfx/fivem/blob/master/code/components/rage-device-five/src/fiDeviceClasses.cpp

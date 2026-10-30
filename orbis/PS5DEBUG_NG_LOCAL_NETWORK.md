@@ -1,10 +1,10 @@
-# Connexion locale PS5 13.60 : Y2JB / Kstuff Lite / ps5debug-NG
+# Connexion locale PS5 13.40 : Y2JB / Kstuff Lite / ps5debug-NG
 
 ## Objectif
 
 Pouvoir dialoguer depuis le PC Windows deja connecte au projet avec
 **ps5debug-NG 1.3.2** sur PS5, via reseau local ou Tailscale. La sonde
-verifie que le firmware annonce est 13.60 et refuse de poursuivre sinon.
+verifie que le firmware annonce est **13.40** (console confirmee par son proprietaire) et refuse de poursuivre sinon.
 Aucune connexion ChatGPT -> console directe et aucun port Internet a ouvrir.
 La sonde teste la connexion et le firmware : elle ne change ni les
 processus, ni la memoire ni les fichiers RDR2.
@@ -67,12 +67,13 @@ dans Parametres PS5 > Systeme > Logiciel systeme > Informations de
 la console. Ne pas utiliser des offsets RDR2 ou firmware sur un appareil
 dont la version n'est pas celle attendue.
 
-Resultat attendu sur FW 13.60 :
+Resultat attendu sur FW 13.40 :
 
     {
       "service": "ps5debug-NG by OSR v1.3.2 ...",
-      "firmware": "13.60",
-      "firmware_is_13_60": true,
+      "firmware": "13.40",
+      "expected_firmware": "13.40",
+      "firmware_matches_expected": true,
       "read_only_identity_test": true,
       "debug_attached": false,
       "game_memory_accessed": false,
@@ -89,7 +90,7 @@ les mauvaises signatures et un firmware different.
 - Connection refused TCP 744 : serveur non charge ou chargeur incompatible.
 - Timeout : reseaux separes, firewall, Wi-Fi invite ou isolation client.
 - Plusieurs consoles reconnues : utiliser --ip avec l'adresse de SA PS5.
-- Firmware different de 13.60 : le serveur debug repond, mais cela
+- Firmware different de 13.40 : le serveur debug repond, mais cela
   peut etre une autre console Tailscale ou une version differente.
   Verifier l'appareil et sa version sur l'ecran PS5 avant toute lecture
   de processus ou modification memoire.
@@ -106,8 +107,15 @@ non destructives BRANDING et FW_VERSION.
 Le code ps5debug-NG v1.3.2 dans debugger/source/meta.c etablit que
 CMD_BRANDING (0xBD000501) renvoie directement un uint32 longueur puis
 les octets, sans mot de statut. CMD_FW_VERSION (0xBD000500) renvoie un
-uint16 decimal (1360 pour 13.60), lui aussi sans mot de statut.
+uint16 decimal (1340 pour 13.40), lui aussi sans mot de statut.
 Le script n'autorise aucune autre commande.
+
+Le serveur du proprietaire a deja renvoye **ps5debug-NG v1.3.2** et
+**13.40** via Tailscale. La correspondance avec sa console a ete
+confirmee par l'utilisateur ; aucun jeu n'etait lance et aucune
+operation de lecture de processus, memoire ou injection n'a ete faite.
+Le script permet aussi de choisir une autre valeur attendue
+avec --expected-fw XX.YY, pour de futurs essais ; le defaut reste 13.40.
 
 Il restera a valider sur console l'inspection RDR2 1.00, puis la
 possibilite de charger le PRX passif dans son processus. La disponibilite

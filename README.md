@@ -1,8 +1,8 @@
 # RDR2 LML Bridge — prototype indépendant pour un futur port PS4/PS5
 
-État actualisé le 30 octobre 2026. Ce projet **n'est pas un vfs.asi converti en .prx** et ne fonctionne pas encore dans RDR2 sur console. Il porte uniquement la partie indépendante du moteur : lecture de descriptions de mods, préparation des ressources et correspondance de chemins.
+État actualisé le 31 octobre 2026. Ce projet **n'est pas un vfs.asi converti en .prx** et ne fonctionne pas encore dans RDR2 sur console. Il porte uniquement la partie indépendante du moteur : lecture de descriptions de mods, préparation des ressources et correspondance de chemins.
 
-**Priorité de développement : RDR2 PS4 1.00** (EBOOT réel analysé, SHA-256 e3ae087f...). **Deuxième cible : RDR2 PS4 1.32**, qui demandera son propre EBOOT, sur PS5 jailbreakée firmware 13.60. Aucune des deux versions n'a été validée en jeu avec le modloader.
+**Priorité de développement : RDR2 PS4 1.00** (EBOOT réel analysé, SHA-256 e3ae087f...). **Deuxième cible : RDR2 PS4 1.32**, qui demandera son propre EBOOT, sur PS5 jailbreakée firmware **13.40** (confirmé par l'utilisateur et la sonde ps5debug-NG). Aucune des deux versions n'a été validée en jeu avec le modloader.
 
 ## Nouveau module fiPackfile8 pour PS4 1.00
 
@@ -17,7 +17,7 @@ Les tests incluent ouvertures concurrentes, exceptions, refus de détachement pe
 ## Connexion à la PS5 depuis le PC via ps5debug-NG
 
 La configuration réelle de la console est **Y2JB + Kstuff Lite +
-ShadowMountPlus** sur PS5 13.60, **sans etaHEN**. La procédure
+ShadowMountPlus** sur PS5 **13.40**, **sans etaHEN**. La procédure
 etaHEN ci-dessous n'est PAS adaptée à cette configuration.
 Le client local `tools/ps5debug_ng_probe.py` vérifie uniquement
 l'identité et le firmware du serveur ps5debug-NG, avec découverte
@@ -30,14 +30,16 @@ Voir `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
     python -B .\tools\ps5debug_ng_probe.py --discover
     python -B .\tools\ps5debug_ng_probe.py --ip VOTRE_IP_TAILSCALE --tailscale
 
-Un firmware autre que **13.60** est un blocage : vérifier dans les
+Un firmware autre que **13.40** est un blocage : vérifier dans les
 paramètres système de la console et dans Tailscale avant de poursuivre.
 Ne jamais exposer ce serveur de diagnostic sur Internet.
 
-## Installation du PRX 1.00 sur PS5 13.60 (test passif)
+## Guide historique etaHEN 13.60 (non compatible avec Y2JB 13.40)
 
-Voir `orbis/INSTALL_PS5_100.md` pour les étapes FTP / etaHEN Unified,
-activation, logs et désinstallation. Pour préparer une arborescence de
+Le document `orbis/INSTALL_PS5_100.md` décrit une ancienne procédure
+FTP pour **etaHEN Unified 13.60**. Elle **ne doit pas être utilisée**
+sur cette console **Y2JB + Kstuff Lite 13.40** : aucun chargeur PRX
+pour RDR2 n'est encore validé sur ce système. Pour préparer une arborescence de
 copie sur PC après vérification du **vrai CUSA** :
 
     python -B .\orbis\stage_pack_trace_100.py --title-id CUSA12345 --out .\ps5_install_100
@@ -128,7 +130,7 @@ Les types pris en charge par ce prototype sont FileReplacement, StreamingFile, D
 
 ## Éléments manquants pour un vrai chargeur sur PS5
 
-1. **Vérifier sur PS5 13.60** le chargement d'un PRX minimal dans RDR2 PS4 1.32. Un signalement du 25 octobre 2026 décrit une erreur mprotect dans le chargeur etaHEN pour RDR2 CUSA08519.
+1. **Vérifier sur PS5 13.40/Y2JB** le chargement d'un PRX minimal dans RDR2 PS4 **1.00** ; la cible 1.32 viendra ensuite avec son propre EBOOT. Un signalement d'octobre 2026 décrit historiquement une erreur mprotect sous un chargeur etaHEN pour RDR2 PS4 1.32/CUSA08519 sur 13.60, pas sur la console actuelle.
 2. **Compilation PS4/Orbis réalisée :** OpenOrbis 0.5.4 et LLVM 18.1.8 produisent les deux sondes nouvelles avec module_start exporté. Le chargement réel dans le jeu reste non testé.
 3. **RAGE VFS : adaptateur de remplacement développé et testé hors jeu.** L'EBOOT fourni a été confirmé par l'utilisateur comme **PS4 1.00**. Les RVA fiPackfile8/Open et leur contrôle d'identité concernent uniquement ce binaire **1.00** ; le contrôle refuse 1.32. Pour viser 1.32, il manque **son propre EBOOT 1.32**, l'ABI des méthodes et le trampoline à tester. Le fichier update:/... n'est pas un chemin POSIX.
 4. Fournir la capacité de déclarer les assets en streaming et les types de DataFile dans le moteur RDR2, ainsi que les ressources XML/RAGE/PSO et tables de chaînes.

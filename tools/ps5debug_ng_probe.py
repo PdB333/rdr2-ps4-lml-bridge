@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only LAN connectivity probe for ps5debug-NG v1.3.2 on PS5 FW 13.60.
+"""Read-only LAN/Tailscale ps5debug-NG v1.3.2 probe (PS5 FW 13.40 default).
 
 No game patches, process attach, dumps, authentication, payload injection,
 port forwarding, or memory read/write. Only requests public service BRANDING
@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import re
 import socket
 import subprocess
 import struct
@@ -32,7 +33,7 @@ CMD_FW_VERSION = 0xBD000500
 DISCOVERY_MAGIC = struct.pack("<I", 0xFFFFAAAA)
 COMMAND_PORT = 744
 DISCOVERY_PORT = 1010
-EXPECTED_FW = 1360
+DEFAULT_EXPECTED_FW = 1340  # Owner confirmed PS5 firmware 13.40
 MAX_BRAND_LENGTH = 512
 TAILSCALE_RANGE = ipaddress.IPv4Network("100.64.0.0/10")
 PRIVATE_RANGES = tuple(
@@ -83,6 +84,21 @@ def verify_tailscale_route(target: str) -> None:
         raise ValueError("L'adresse ne passe pas par l'interface Tailscale du PC")
 
 
+def display_fw(fw: int) -> str:
+    return f"{fw // 100}.{fw % 100:02d}"
+
+
+def parse_expected_fw(value: str) -> int:
+    # Firmware 13.40 is distinct from RDR2 PS4 game version 1.00.
+    if not re.fullmatch(r"[0-9]{1,2}\.[0-9]{2}", value):
+        raise argparse.ArgumentTypeError("Format firmware attendu : XX.YY (ex. 13.40)")
+    major, minor = value.split(".")
+    fw = int(major) * 100 + int(minor)
+    if not 100 <= fw <= 2000:
+        raise argparse.ArgumentTypeError("Firmware attendu hors limite")
+    return fw
+
+
 def recv_exact(conn: socket.socket, size: int) -> bytes:
     if not 0 <= size <= MAX_BRAND_LENGTH:
         raise ValueError("Longueur de reponse hors limite de securite")
@@ -101,12 +117,15 @@ def request(conn: socket.socket, command: int) -> None:
     conn.sendall(struct.pack("<III", PACKET_MAGIC, command, 0))
 
 
-def probe(ip: str, *, timeout: float = 3.0, tailscale: bool = False) -> dict:
+def probe(ip: str, *, timeout: float = 3.0, tailscale: bool = False,
+          expected_fw: int = DEFAULT_EXPECTED_FW) -> dict:
     target = validate_local_ip(ip, tailscale=tailscale)
     if tailscale:
         verify_tailscale_route(target)
     if not 0 < timeout <= 10:
         raise ValueError("Delai de connexion incorrect")
+    if type(expected_fw) is not int or not 100 <= expected_fw <= 2000:
+        raise ValueError("Firmware attendu incorrect")
     with socket.create_connection((target, COMMAND_PORT), timeout=timeout) as conn:
         conn.settimeout(timeout)
         request(conn, CMD_BRANDING)
@@ -132,8 +151,9 @@ def probe(ip: str, *, timeout: float = 3.0, tailscale: bool = False) -> dict:
         "tcp_port": COMMAND_PORT,
         "service": branding,
         "capability": capability_label,
-        "firmware": f"{firmware // 100}.{firmware % 100:02d}",
-        "firmware_is_13_60": firmware == EXPECTED_FW,
+        "firmware": display_fw(firmware),
+        "expected_firmware": display_fw(expected_fw),
+        "firmware_matches_expected": firmware == expected_fw,
         "read_only_identity_test": True,
         "debug_attached": False,
         "game_memory_accessed": False,
@@ -175,6 +195,9 @@ def main(argv: list[str] | None = None) -> int:
     args.add_argument("--discover", action="store_true",
                       help="Chercher le service ps5debug-NG par une requete UDP LAN")
     p.add_argument("--timeout", type=float, default=2.0)
+    p.add_argument("--expected-fw", type=parse_expected_fw,
+                   default=DEFAULT_EXPECTED_FW,
+                   help="Firmware attendu, par defaut 13.40 (ex. --expected-fw 13.60)")
     p.add_argument("--tailscale", action="store_true",
                    help="Autoriser une adresse 100.64.0.0/10 UNIQUEMENT via route Tailscale Windows")
     config = p.parse_args(argv)
@@ -197,10 +220,12 @@ def main(argv: list[str] | None = None) -> int:
             ip = candidates[0]
         else:
             ip = config.ip
-        result = probe(ip, timeout=config.timeout, tailscale=config.tailscale)
+        result = probe(ip, timeout=config.timeout, tailscale=config.tailscale,
+                       expected_fw=config.expected_fw)
         print(json.dumps(result, indent=2, ensure_ascii=False))
-        if not result["firmware_is_13_60"]:
-            print("ATTENTION : firmware detecte different de 13.60", file=sys.stderr)
+        if not result["firmware_matches_expected"]:
+            print("ATTENTION : firmware detecte different de "
+                  + result["expected_firmware"], file=sys.stderr)
             return 4
         return 0
     except (OSError, ValueError, ConnectionError, struct.error) as exc:

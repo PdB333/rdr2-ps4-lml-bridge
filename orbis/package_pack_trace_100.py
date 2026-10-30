@@ -11,11 +11,12 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/"LML_BRIDGE_RDR2_PS4_100_HARDENED_TRACE_DEVKIT.zip"
+OUT=ROOT/"LML_BRIDGE_RDR2_PS4_100_PS5_FW1340_DEVKIT.zip"
 FILES=[
     "AGENTS.md", "README.md", "PORTING_STATUS.md",
     "orbis/EBOOT_RAGE_VFS_PROFILE.md",
     "orbis/RDR2_PS4_100_TRACE_STATUS.md",
+    "orbis/PS5DEBUG_NG_LOCAL_NETWORK.md",
     "orbis/pack_trace_100_module.c",
     "orbis/build_pack_trace_100.ps1",
     "orbis/package_pack_trace_100.py",
@@ -27,10 +28,12 @@ FILES=[
     "runtime/rdr2_100_pack_trace.h",
     "tools/inspect_rdr2_eboot.py",
     "tools/verify_eboot_100.py",
+    "tools/ps5debug_ng_probe.py",
     "tools/verify_pack_trace_100.ps1",
     "tests/test_rdr2_100_trace.cpp",
     "tests/test_rdr2_100_orbis.py",
     "tests/test_rdr2_100_inspector.py",
+    "tests/test_ps5debug_ng_probe.py",
     "orbis_build/pack_trace_100_report.json",
     "orbis_build/pack_trace_100_final_validation.json",
     "orbis_build/LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx",
@@ -65,7 +68,7 @@ def main()->None:
     manifest={
         "format":"lml-rdr2-ps4-100-hardening-kit/1",
         "target_game":"RDR2 PS4 v1.00",
-        "console_target":"PS5 FW13.60 (NOT TESTED IN GAME)",
+        "console_target":"PS5 FW13.40 Y2JB/Kstuff Lite (NOT TESTED IN GAME)",
         "status":"offline_verified_passive_trace_only",
         "source_eboot_included":False,
         "original_lml_binaries_included":False,

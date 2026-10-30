@@ -84,7 +84,7 @@ class FakeUdp:
 
 
 def fake_server(*, branding: str = "ps5debug-NG by OSR v1.3.2",
-                firmware: int = 1360, advertised_length: int | None = None,
+                firmware: int = 1340, advertised_length: int | None = None,
                 truncate: int = 0) -> FakeSocket:
     brand = (branding + "\0" + "1.1").encode("utf-8")
     length = len(brand) if advertised_length is None else advertised_length
@@ -100,10 +100,11 @@ class TestPs5DebugNgReadOnlyProbe(unittest.TestCase):
         with patch.object(probe.socket, "create_connection", return_value=fake) as connect:
             output = probe.probe(LAN_IP)
         connect.assert_called_once_with((LAN_IP, 744), timeout=3.0)
-        self.assertEqual(output["firmware"], "13.60")
+        self.assertEqual(output["firmware"], "13.40")
+        self.assertEqual(output["expected_firmware"], "13.40")
         self.assertEqual(output["service"], "ps5debug-NG by OSR v1.3.2")
         self.assertEqual(output["capability"], "1.1")
-        self.assertTrue(output["firmware_is_13_60"])
+        self.assertTrue(output["firmware_matches_expected"])
         self.assertTrue(output["read_only_identity_test"])
         self.assertFalse(output["debug_attached"])
         self.assertFalse(output["game_memory_accessed"])
@@ -115,11 +116,12 @@ class TestPs5DebugNgReadOnlyProbe(unittest.TestCase):
         self.assertTrue(fake.closed)
 
     def test_02_other_firmware_is_reported_as_mismatch(self):
-        fake = fake_server(firmware=1340)
+        fake = fake_server(firmware=1360)
         with patch.object(probe.socket, "create_connection", return_value=fake):
             result = probe.probe(LAN_IP)
-        self.assertEqual(result["firmware"], "13.40")
-        self.assertFalse(result["firmware_is_13_60"])
+        self.assertEqual(result["firmware"], "13.60")
+        self.assertEqual(result["expected_firmware"], "13.40")
+        self.assertFalse(result["firmware_matches_expected"])
 
     def test_03_wrong_service_identity_rejected_before_second_command(self):
         fake = fake_server(branding="unexpected-local-server")
@@ -220,7 +222,7 @@ class TestPs5DebugNgReadOnlyProbe(unittest.TestCase):
              patch.object(probe.socket, "create_connection", return_value=fake):
             answer = probe.probe(SYNTHETIC_TAILSCALE_IP, tailscale=True)
         verify.assert_called_once_with(SYNTHETIC_TAILSCALE_IP)
-        self.assertEqual(answer["firmware"], "13.60")
+        self.assertEqual(answer["firmware"], "13.40")
         self.assertFalse(answer["game_memory_accessed"])
         self.assertEqual(fake.sent, [
             struct.pack("<III", 0xFFAABBCC, 0xBD000501, 0),
@@ -245,8 +247,30 @@ class TestPs5DebugNgReadOnlyProbe(unittest.TestCase):
             code = probe.main(["--ip", SYNTHETIC_TAILSCALE_IP, "--tailscale"])
         self.assertEqual(code, 0, err.getvalue())
         verify.assert_called_once_with(SYNTHETIC_TAILSCALE_IP)
-        self.assertIn('"firmware_is_13_60": true', out.getvalue())
+        self.assertIn('"firmware_matches_expected": true', out.getvalue())
         self.assertEqual(len(fake.sent), 2)
+
+
+    def test_16_optional_future_expected_firmware_can_be_selected(self):
+        # Firmware selection is explicit; no process or memory operation.
+        future = fake_server(firmware=1360)
+        with patch.object(probe, "verify_tailscale_route"), \
+             patch.object(probe.socket, "create_connection", return_value=future):
+            answer = probe.probe(SYNTHETIC_TAILSCALE_IP, tailscale=True,
+                                 expected_fw=1360)
+        self.assertEqual(answer["firmware"], "13.60")
+        self.assertEqual(answer["expected_firmware"], "13.60")
+        self.assertTrue(answer["firmware_matches_expected"])
+        self.assertEqual(len(future.sent), 2)
+
+    def test_17_bad_expected_firmware_refused(self):
+        for text in ("", "13.4", "13", "13.400", "0.00", "25.00", "13.40;echo"):
+            with self.subTest(value=text), self.assertRaises(Exception):
+                probe.parse_expected_fw(text)
+        with patch.object(probe.socket, "create_connection") as conn:
+            with self.assertRaisesRegex(ValueError, "Firmware attendu incorrect"):
+                probe.probe(LAN_IP, expected_fw=9999)
+            conn.assert_not_called()
 
 
 if __name__ == "__main__":

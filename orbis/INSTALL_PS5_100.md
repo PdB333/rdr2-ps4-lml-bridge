@@ -1,4 +1,14 @@
-# Installer le PRX RDR2 PS4 1.00 — PS5 firmware 13.60
+# Ancienne procedure etaHEN (non applicable a la console actuelle)
+
+**IMPORTANT : cette procedure historique concerne etaHEN Unified sur
+PS5 13.60.** La console du proprietaire est maintenant confirmee
+**PS5 13.40 avec Y2JB + Kstuff Lite + ShadowMountPlus, sans etaHEN**.
+**Ne pas utiliser le chemin de plugins etaHEN decrit ci-dessous.**
+Pour la connexion actuelle voir orbis/PS5DEBUG_NG_LOCAL_NETWORK.md.
+Un chargeur de PRX directement dans RDR2 n'est PAS encore disponible
+sur cette configuration.
+
+# Installer le PRX RDR2 PS4 1.00 — PS5 13.60 (etaHEN uniquement)
 
 ## Important : premier test, pas encore un modloader
 

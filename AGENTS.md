@@ -3,7 +3,7 @@
 ## Goal and status
 
 Build an independent LML-style file replacement bridge for Red Dead
-Redemption 2 on a **PS5 firmware 13.60 jailbreak**. Work on **PS4 1.00
+Redemption 2 on a **PS5 firmware 13.40 jailbreak**. Work on **PS4 1.00
 FIRST** using the owner-confirmed EBOOT (SHA-256 e3ae087f...), then
 support PS4 1.32 using a separate EBOOT and version profile. Focus on offline story mode.
 
@@ -17,7 +17,7 @@ Do not report simulated success as a successful in-game hook.
 
 ## Actual console configuration and networking
 
-User confirmed: **Y2JB 13.60 + Kstuff Lite + ShadowMountPlus** and a
+User confirmed: **Y2JB 13.40 + Kstuff Lite + ShadowMountPlus** and a
 Payload Manager, **NO etaHEN**. Do not recommend copying to etaHEN
 `game_plugins` on this setup. The Windows workstation accessed via
 mcp__testn__ tools has an active Ethernet LAN (192.168.1.x currently).
@@ -25,10 +25,10 @@ A read-only identity/firmware probe is implemented in
 `tools/ps5debug_ng_probe.py`, including strict opt-in `--tailscale`
 for 100.64.0.0/10 with Windows Tailscale route verification. Its two
 version commands were run against a reachable Tailscale-routed
-ps5debug-NG v1.3.2 server. **The observed firmware differed from the
-user's claimed 13.60**, so do NOT do any process operations, injection
-or game-memory inspection until the owner verifies the device and
-firmware. This is a real network service check, NOT RDR2 running in-game.
+ps5debug-NG v1.3.2 server. The server announced **13.40**, and the owner
+confirmed that **13.40 is the correct firmware**. This version-only
+connection is now verified. **No game was running, no process listing or
+memory access was performed**, and no in-game RDR2 hook is installed.
 No remote port forwarding or Internet exposure.
 See `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
 
@@ -51,13 +51,13 @@ file modloader; **Open tracing is not byte replacement**.
 
 ## Installing the passive 1.00 probe
 
-Read `orbis/INSTALL_PS5_100.md` for verified steps. The script
-`orbis/stage_pack_trace_100.py` validates the local PRX checksum, SELF
-magic and 1.00-only build report, then creates a non-destructive local FTP
-copy tree for an explicitly supplied CUSA Title ID. It does not connect to
-the console or install anything. `tests/test_stage_pack_trace_100.py`
-covers valid staging, bad Title IDs, existing destinations, tampering and
-incorrect build metadata. The repository has no PS5 remote connection.
+The old `orbis/INSTALL_PS5_100.md` describes a DIFFERENT
+etaHEN Unified 13.60 environment. **Do not use it on the owner's
+Y2JB/Kstuff Lite PS5 13.40.** The script `orbis/stage_pack_trace_100.py`
+only stages a local PRX copy for that historical etaHEN layout; it
+is NOT a working installation path for this console. `tests/test_stage_pack_trace_100.py`
+covers its offline staging safety. The actual ps5debug-NG server responds
+over Tailscale, but no PRX has been loaded into RDR2.
 Never assume the user has etaHEN Unified or knows their Title ID without
 checking their actual installed loader and game.
 
@@ -129,7 +129,7 @@ for full test coverage; missing build outputs can cause skips or errors.
 4. Route ALL operations on overlay tokens, not just file Open:
    read, seek, size, stat, close. Never pass synthetic bridge tokens
    to unmodified engine functions.
-5. Confirm that PS5 13.60 accepts the game PRX. A public issue documented
+5. Confirm that PS5 **13.40/Y2JB** accepts the game PRX. A historical issue documented
    an arena mprotect failure for RDR2 PS4 1.32 / CUSA08519 under one
    unofficial etaHEN fork (October 2026).
 6. Implement RAGE XML/PSO conversion and streaming/data registration.

@@ -8,6 +8,7 @@ ps5debug-NG magic packet to LAN broadcast port 1010.
 
     python -B tools/ps5debug_ng_probe.py --discover
     python -B tools/ps5debug_ng_probe.py --ip 192.168.1.123
+    python -B tools/ps5debug_ng_probe.py --ip YOUR_TAILSCALE_IP --tailscale
 
 Source protocol:
 https://github.com/Pharaoh2k/ps5debug-NG/blob/master/PROTOCOL.md
@@ -20,6 +21,7 @@ import argparse
 import ipaddress
 import json
 import socket
+import subprocess
 import struct
 import sys
 import time
@@ -32,22 +34,53 @@ COMMAND_PORT = 744
 DISCOVERY_PORT = 1010
 EXPECTED_FW = 1360
 MAX_BRAND_LENGTH = 512
+TAILSCALE_RANGE = ipaddress.IPv4Network("100.64.0.0/10")
 PRIVATE_RANGES = tuple(
     ipaddress.IPv4Network(cidr)
     for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 )
 
 
-def validate_local_ip(value: str) -> str:
+def validate_local_ip(value: str, *, tailscale: bool = False) -> str:
     try:
         addr = ipaddress.IPv4Address(value)
     except ipaddress.AddressValueError as exc:
         raise ValueError("Adresse IPv4 incorrecte : entrer l'IP locale de la PS5") from exc
+    if tailscale and addr not in TAILSCALE_RANGE:
+        raise ValueError("--tailscale exige une adresse Tailscale 100.64.0.0/10")
     if not any(addr in network for network in PRIVATE_RANGES):
-        raise ValueError(
-            "Refus d'une IP publique, loopback ou multicast : réseau local uniquement"
-        )
+        if not (tailscale and addr in TAILSCALE_RANGE):
+            raise ValueError(
+                "Refus d'une IP non LAN : utiliser --tailscale pour un vrai pair Tailscale"
+            )
     return str(addr)
+
+
+def verify_tailscale_route(target: str) -> None:
+    """Explicitly require the Tailscale interface BEFORE sending commands.
+
+    Windows-only: this repository's workstation is Windows and the user has
+    confirmed a Tailscale route. A CGNAT/shared 100.x address is not proof
+    of a private tailnet; never access it through the ordinary ISP route.
+    """
+    if sys.platform != "win32":
+        raise ValueError("La verification de la route Tailscale exige Windows")
+    # Only digits and dots from IPv4Address() reach this PowerShell command.
+    command = (
+        "$ErrorActionPreference='Stop'; "
+        "(Find-NetRoute -RemoteIPAddress '" + target + "' -ErrorAction Stop "
+        "| Select-Object -ExpandProperty InterfaceAlias)"
+    )
+    try:
+        check = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True, text=True, timeout=8, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ValueError("Impossible de verifier la route Tailscale Windows") from exc
+    interfaces = {line.strip().casefold() for line in check.stdout.splitlines()}
+    if check.returncode != 0 or "tailscale" not in interfaces:
+        raise ValueError("L'adresse ne passe pas par l'interface Tailscale du PC")
 
 
 def recv_exact(conn: socket.socket, size: int) -> bytes:
@@ -68,8 +101,10 @@ def request(conn: socket.socket, command: int) -> None:
     conn.sendall(struct.pack("<III", PACKET_MAGIC, command, 0))
 
 
-def probe(ip: str, *, timeout: float = 3.0) -> dict:
-    target = validate_local_ip(ip)
+def probe(ip: str, *, timeout: float = 3.0, tailscale: bool = False) -> dict:
+    target = validate_local_ip(ip, tailscale=tailscale)
+    if tailscale:
+        verify_tailscale_route(target)
     if not 0 < timeout <= 10:
         raise ValueError("Delai de connexion incorrect")
     with socket.create_connection((target, COMMAND_PORT), timeout=timeout) as conn:
@@ -140,9 +175,13 @@ def main(argv: list[str] | None = None) -> int:
     args.add_argument("--discover", action="store_true",
                       help="Chercher le service ps5debug-NG par une requete UDP LAN")
     p.add_argument("--timeout", type=float, default=2.0)
+    p.add_argument("--tailscale", action="store_true",
+                   help="Autoriser une adresse 100.64.0.0/10 UNIQUEMENT via route Tailscale Windows")
     config = p.parse_args(argv)
     try:
         if config.discover:
+            if config.tailscale:
+                raise ValueError("--tailscale s'utilise avec --ip, pas --discover")
             candidates = discover(timeout=config.timeout)
             if not candidates:
                 print(
@@ -158,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
             ip = candidates[0]
         else:
             ip = config.ip
-        result = probe(ip, timeout=config.timeout)
+        result = probe(ip, timeout=config.timeout, tailscale=config.tailscale)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         if not result["firmware_is_13_60"]:
             print("ATTENTION : firmware detecte different de 13.60", file=sys.stderr)

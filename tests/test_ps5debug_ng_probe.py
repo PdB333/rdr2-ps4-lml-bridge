@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import socket
+import subprocess
 import struct
 import sys
 import unittest
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 import ps5debug_ng_probe as probe  # noqa: E402
 
 LAN_IP = "192.168.1.181"
+SYNTHETIC_TAILSCALE_IP = "100.101.102.103"  # Example only, NEVER a real user device.
 
 
 class FakeSocket:
@@ -174,6 +176,77 @@ class TestPs5DebugNgReadOnlyProbe(unittest.TestCase):
         self.assertEqual(status, 4)
         self.assertIn('"firmware": "12.00"', out.getvalue())
         self.assertIn("firmware detecte different", err.getvalue())
+
+
+    def test_10_shared_cgnat_address_never_accepted_by_default(self):
+        with self.assertRaises(ValueError):
+            probe.validate_local_ip(SYNTHETIC_TAILSCALE_IP)
+        self.assertEqual(
+            probe.validate_local_ip(SYNTHETIC_TAILSCALE_IP, tailscale=True),
+            SYNTHETIC_TAILSCALE_IP
+        )
+        for bad in ("8.8.8.8", "192.168.1.181", "127.0.0.1"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                probe.validate_local_ip(bad, tailscale=True)
+
+    def test_11_tailscale_route_must_match_exact_adapter(self):
+        ok = subprocess.CompletedProcess([], 0, stdout="Tailscale\r\n", stderr="")
+        with patch.object(probe.sys, "platform", "win32"), \
+             patch.object(probe.subprocess, "run", return_value=ok) as run:
+            probe.verify_tailscale_route(SYNTHETIC_TAILSCALE_IP)
+            self.assertIn("Find-NetRoute", run.call_args.args[0][-1])
+        for response in (
+            subprocess.CompletedProcess([], 0, stdout="Ethernet\n", stderr=""),
+            subprocess.CompletedProcess([], 0, stdout="NotTailscale\n", stderr=""),
+            subprocess.CompletedProcess([], 1, stdout="Tailscale\n", stderr="error"),
+        ):
+            with self.subTest(response=response), \
+                 patch.object(probe.sys, "platform", "win32"), \
+                 patch.object(probe.subprocess, "run", return_value=response):
+                with self.assertRaisesRegex(ValueError, "interface Tailscale"):
+                    probe.verify_tailscale_route(SYNTHETIC_TAILSCALE_IP)
+
+    def test_12_bad_route_prevents_even_tcp_connection(self):
+        with patch.object(probe, "verify_tailscale_route",
+                          side_effect=ValueError("no tailscale route")), \
+             patch.object(probe.socket, "create_connection") as connect:
+            with self.assertRaisesRegex(ValueError, "no tailscale route"):
+                probe.probe(SYNTHETIC_TAILSCALE_IP, tailscale=True)
+            connect.assert_not_called()
+
+    def test_13_tailscale_probe_only_version_requests(self):
+        fake = fake_server()
+        with patch.object(probe, "verify_tailscale_route") as verify, \
+             patch.object(probe.socket, "create_connection", return_value=fake):
+            answer = probe.probe(SYNTHETIC_TAILSCALE_IP, tailscale=True)
+        verify.assert_called_once_with(SYNTHETIC_TAILSCALE_IP)
+        self.assertEqual(answer["firmware"], "13.60")
+        self.assertFalse(answer["game_memory_accessed"])
+        self.assertEqual(fake.sent, [
+            struct.pack("<III", 0xFFAABBCC, 0xBD000501, 0),
+            struct.pack("<III", 0xFFAABBCC, 0xBD000500, 0),
+        ])
+
+    def test_14_tailscale_requires_explicit_ip_not_discovery(self):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err), \
+             patch.object(probe.socket, "socket") as udp:
+            status = probe.main(["--discover", "--tailscale"])
+        self.assertEqual(status, 2)
+        self.assertIn("--tailscale s'utilise avec --ip", err.getvalue())
+        udp.assert_not_called()
+
+    def test_15_main_tailscale_path_never_writes_memory(self):
+        fake = fake_server()
+        out, err = io.StringIO(), io.StringIO()
+        with patch.object(probe, "verify_tailscale_route") as verify, \
+             patch.object(probe.socket, "create_connection", return_value=fake), \
+             redirect_stdout(out), redirect_stderr(err):
+            code = probe.main(["--ip", SYNTHETIC_TAILSCALE_IP, "--tailscale"])
+        self.assertEqual(code, 0, err.getvalue())
+        verify.assert_called_once_with(SYNTHETIC_TAILSCALE_IP)
+        self.assertIn('"firmware_is_13_60": true', out.getvalue())
+        self.assertEqual(len(fake.sent), 2)
 
 
 if __name__ == "__main__":

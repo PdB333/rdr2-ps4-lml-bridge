@@ -15,7 +15,7 @@ Dernière vérification : 30 octobre 2026.
 2. Cœur C++17 portable : ps4_lml_bridge/runtime/overlay_index.hpp et overlay_index.cpp.
 3. Programme de test Windows : ps4_lml_bridge/runtime/overlay_probe.exe, compilé statiquement.
 4. Paquet d'exemples : ps4_lml_bridge/staged_samples_v2, avec 5 mods, 14 ressources et 20 164 930 octets.
-5. 68 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
+5. 74 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
 6. Les 14 hashes des ressources copiées correspondent aux sources d'origine.
 7. Compilateur croisé OpenOrbis 0.5.4 / LLVM 18.1.8 installé en isolation. Quatre PRX de diagnostic compilés hors console ; les deux nouveaux exportent explicitement module_start, et le runtime C++ peut charger automatiquement le catalogue en lecture seule.
 8. Le staging local etaHEN peut préparer un dossier de test pour un Title ID explicitement fourni, sans transfert sur la console.
@@ -25,7 +25,11 @@ Dernière vérification : 30 octobre 2026.
 
 12. **Préparation de l'installation RDR2 PS4 1.00 :** documentation FTP etaHEN Unified dans `orbis/INSTALL_PS5_100.md` ; script `orbis/stage_pack_trace_100.py` produit uniquement un dossier local après saisie du vrai CUSA, contrôle SHA-256 et verrouillage du profil 1.00. Aucune connexion PS5 ni installation sur console n'a été effectuée. Cinq tests de staging spécifiques passent.
 
-13. **Liaison réseau ps5debug-NG / configuration réelle Y2JB + Kstuff Lite + ShadowMountPlus :** aucun etaHEN n'est installé. Le poste Windows dispose d'un accès LAN Ethernet et le client `tools/ps5debug_ng_probe.py` réalise une découverte UDP 1010 optionnelle et le protocole branding/firmware TCP 744 en lecture seule, sans modification PS5. Neuf tests hors réseau valident le protocole. Voir `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`. L'utilisateur doit encore lancer le payload sur la PS5 et confirmer la connexion réelle.
+13. **Liaison réseau ps5debug-NG / configuration réelle Y2JB + Kstuff Lite + ShadowMountPlus :** aucun etaHEN n'est installé. Le poste Windows dispose d'un accès LAN Ethernet et le client `tools/ps5debug_ng_probe.py` réalise une découverte UDP 1010 optionnelle et le protocole branding/firmware TCP 744 en lecture seule, sans modification PS5. Neuf tests hors réseau valident le protocole. Voir `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`. Une connexion réelle via Tailscale a atteint le serveur ps5debug-NG
+   en TCP 744 et ses commandes de version ; un écart existe entre
+   le firmware annoncé et celui attendu. Aucune lecture de processus,
+   mémoire ou injection n'a été tentée. Le script exige `--tailscale`
+   et une route Windows Tailscale vérifiée pour les adresses 100.64/10.
 
 ## Matrice de statut
 

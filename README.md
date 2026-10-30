@@ -21,11 +21,18 @@ ShadowMountPlus** sur PS5 13.60, **sans etaHEN**. La procédure
 etaHEN ci-dessous n'est PAS adaptée à cette configuration.
 Le client local `tools/ps5debug_ng_probe.py` vérifie uniquement
 l'identité et le firmware du serveur ps5debug-NG, avec découverte
-UDP 1010 ou IPv4 fournie, puis deux requêtes de version TCP 744.
+UDP 1010, IPv4 LAN, ou adresse **Tailscale 100.64.0.0/10** explicitement
+sélectionnée via `--tailscale` et route réseau Windows vérifiée.
+Il n'émet que deux requêtes de version TCP 744.
 Aucun accès à la mémoire du jeu ou injection PRX n'est effectué.
 Voir `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
 
     python -B .\tools\ps5debug_ng_probe.py --discover
+    python -B .\tools\ps5debug_ng_probe.py --ip VOTRE_IP_TAILSCALE --tailscale
+
+Un firmware autre que **13.60** est un blocage : vérifier dans les
+paramètres système de la console et dans Tailscale avant de poursuivre.
+Ne jamais exposer ce serveur de diagnostic sur Internet.
 
 ## Installation du PRX 1.00 sur PS5 13.60 (test passif)
 
@@ -44,7 +51,7 @@ prépare uniquement un dossier local, sans copier quoi que ce soit sur PS5.
 - compiler.py : lit les install.xml, valide et prépare des dossiers d'assets, sans exécuter les binaires d'origine
 - runtime/overlay_index.hpp et runtime/overlay_index.cpp : moteur C++17 portable de résolution de chemins, sans dépendances Windows ni injection dans le jeu
 - runtime/overlay_probe.cpp : banc de test Windows du moteur C++, pas un exécutable PlayStation
-- tests/ : 68 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
+- tests/ : 74 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
 - staged_samples_v2/catalog.json : catalogue complet des ressources et avertissements d'intégration
 - staged_samples_v2/overlay.map : table compacte pour le moteur C++ portable
 - staged_samples_v2/payload : copies octet pour octet des 14 ressources d'exemple
@@ -78,7 +85,7 @@ Cinq exemples convertis, soit 14 ressources et 20 164 930 octets, vérifiés par
 | FileReplacement | 8 chemins |
 | StreamingFile | 2 fichiers |
 | DataFile | 4 déclarations |
-| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 68 réussis |
+| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 74 réussis |
 
 Classification du contenu :
 - 9 ressources .ymt/.ymap/.ytyp/.ymf contenant du XML (sérialisation/compatibilité RAGE-PSO manquante)

@@ -3,7 +3,8 @@
 ## Objectif
 
 Pouvoir dialoguer depuis le PC Windows deja connecte au projet avec
-**ps5debug-NG 1.3.2** sur PS5 firmware 13.60, uniquement via reseau local.
+**ps5debug-NG 1.3.2** sur PS5, via reseau local ou Tailscale. La sonde
+verifie que le firmware annonce est 13.60 et refuse de poursuivre sinon.
 Aucune connexion ChatGPT -> console directe et aucun port Internet a ouvrir.
 La sonde teste la connexion et le firmware : elle ne change ni les
 processus, ni la memoire ni les fichiers RDR2.
@@ -42,6 +43,30 @@ locale affichee par la PS5 :
 192.168.1.123 est un exemple fictif. NE PAS l'utiliser a moins que
 les parametres de la PS5 affichent exactement cette adresse.
 
+## B bis. Adresse Tailscale (100.64.0.0/10)
+
+Une adresse qui commence par 100.x.x.x peut relever de l'espace CGNAT
+utilise par Tailscale : elle n'est PAS une adresse IPv4 LAN classique.
+Pour un appareil deja present dans le meme tailnet que ce PC Windows,
+utiliser explicitement :
+
+    python -B .\tools\ps5debug_ng_probe.py --ip VOTRE_ADRESSE_TAILSCALE --tailscale
+
+Ne pas mettre le texte VOTRE_ADRESSE_TAILSCALE tel quel : le remplacer
+par l'adresse affichee sur ton propre Tailscale.
+
+Le drapeau --tailscale ne permet QUE 100.64.0.0/10 ET exige que la
+route vers cette adresse utilise une interface Windows nommee
+Tailscale avant tout appel TCP. Il refuse une route Ethernet/Internet
+classique, meme si l'adresse est en 100.x. La decouverte UDP --discover
+n'est pas disponible dans cette configuration : il faut --ip.
+
+Un message d'ecart de firmware est bloquant pour la suite :
+identifier l'appareil dans Tailscale ET verifier la version affichee
+dans Parametres PS5 > Systeme > Logiciel systeme > Informations de
+la console. Ne pas utiliser des offsets RDR2 ou firmware sur un appareil
+dont la version n'est pas celle attendue.
+
 Resultat attendu sur FW 13.60 :
 
     {
@@ -64,11 +89,15 @@ les mauvaises signatures et un firmware different.
 - Connection refused TCP 744 : serveur non charge ou chargeur incompatible.
 - Timeout : reseaux separes, firewall, Wi-Fi invite ou isolation client.
 - Plusieurs consoles reconnues : utiliser --ip avec l'adresse de SA PS5.
-- Firmware different : ne pas continuer la validation RDR2 1.00.
+- Firmware different de 13.60 : le serveur debug repond, mais cela
+  peut etre une autre console Tailscale ou une version differente.
+  Verifier l'appareil et sa version sur l'ecran PS5 avant toute lecture
+  de processus ou modification memoire.
 - Aucun affichage : consulter les notifications du gestionnaire Y2JB.
 
 **Ne pas ouvrir TCP 744 sur Internet, ne pas modifier la box pour faire
-du port forwarding.** ps5debug-NG comporte par ailleurs des operations
+du port forwarding.** Sur Tailscale, limiter l'acces au tailnet du
+proprietaire et ne pas exposer ps5debug-NG a des appareils inconnus. ps5debug-NG comporte par ailleurs des operations
 d'ecriture de memoire/noyau. Notre script n'envoie que les commandes
 non destructives BRANDING et FW_VERSION.
 

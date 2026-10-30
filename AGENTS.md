@@ -21,12 +21,15 @@ User confirmed: **Y2JB 13.60 + Kstuff Lite + ShadowMountPlus** and a
 Payload Manager, **NO etaHEN**. Do not recommend copying to etaHEN
 `game_plugins` on this setup. The Windows workstation accessed via
 mcp__testn__ tools has an active Ethernet LAN (192.168.1.x currently).
-A LAN-only, read-only protocol probe is implemented in
-`tools/ps5debug_ng_probe.py` and tested with fake TCP/UDP servers.
-User will need to load the official ps5debug-NG v1.3.2 ELF using a
-compatible Y2JB ELF/umtx payload loader and confirm the PS5 IP or
-UDP discovery. No real PS5 LAN/debugger connection has been established
-in this workflow. No remote port forwarding or Internet exposure.
+A read-only identity/firmware probe is implemented in
+`tools/ps5debug_ng_probe.py`, including strict opt-in `--tailscale`
+for 100.64.0.0/10 with Windows Tailscale route verification. Its two
+version commands were run against a reachable Tailscale-routed
+ps5debug-NG v1.3.2 server. **The observed firmware differed from the
+user's claimed 13.60**, so do NOT do any process operations, injection
+or game-memory inspection until the owner verifies the device and
+firmware. This is a real network service check, NOT RDR2 running in-game.
+No remote port forwarding or Internet exposure.
 See `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
 
 ## Current PS4 1.00 deliverable (October 30, 2026)
@@ -104,7 +107,7 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The Windows project currently passes 68 offline tests (including the EBOOT fingerprint guard). A fresh
+The Windows project currently passes 74 offline tests (including the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 

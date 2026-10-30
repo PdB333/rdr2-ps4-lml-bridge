@@ -39,3 +39,6 @@ orbis_build/*
 !orbis_build/FINAL_RAGE_VFS_VALIDATION.json
 !orbis_build/pack_trace_100_report.json
 !orbis_build/pack_trace_100_final_validation.json
+
+# Locally generated PS5 FTP staging folders (never publish private layout).
+ps5_install_100*/

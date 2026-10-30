@@ -32,6 +32,18 @@ tests, Orbis PRX, and full unit suite. Detailed engineering status is in
 `orbis/RDR2_PS4_100_TRACE_STATUS.md`. Do not describe this as a working
 file modloader; **Open tracing is not byte replacement**.
 
+## Installing the passive 1.00 probe
+
+Read `orbis/INSTALL_PS5_100.md` for verified steps. The script
+`orbis/stage_pack_trace_100.py` validates the local PRX checksum, SELF
+magic and 1.00-only build report, then creates a non-destructive local FTP
+copy tree for an explicitly supplied CUSA Title ID. It does not connect to
+the console or install anything. `tests/test_stage_pack_trace_100.py`
+covers valid staging, bad Title IDs, existing destinations, tampering and
+incorrect build metadata. The repository has no PS5 remote connection.
+Never assume the user has etaHEN Unified or knows their Title ID without
+checking their actual installed loader and game.
+
 ## Primary files
 
 - runtime/rage_vfs_redirect.h and .cpp: C bridge for open/read/read_at/seek,
@@ -78,7 +90,7 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The Windows project currently passes 54 offline tests (including the EBOOT fingerprint guard). A fresh
+The Windows project currently passes 59 offline tests (including the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 

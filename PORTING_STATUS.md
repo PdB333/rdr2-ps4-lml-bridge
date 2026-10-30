@@ -15,13 +15,15 @@ Dernière vérification : 30 octobre 2026.
 2. Cœur C++17 portable : ps4_lml_bridge/runtime/overlay_index.hpp et overlay_index.cpp.
 3. Programme de test Windows : ps4_lml_bridge/runtime/overlay_probe.exe, compilé statiquement.
 4. Paquet d'exemples : ps4_lml_bridge/staged_samples_v2, avec 5 mods, 14 ressources et 20 164 930 octets.
-5. 54 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
+5. 59 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
 6. Les 14 hashes des ressources copiées correspondent aux sources d'origine.
 7. Compilateur croisé OpenOrbis 0.5.4 / LLVM 18.1.8 installé en isolation. Quatre PRX de diagnostic compilés hors console ; les deux nouveaux exportent explicitement module_start, et le runtime C++ peut charger automatiquement le catalogue en lecture seule.
 8. Le staging local etaHEN peut préparer un dossier de test pour un Title ID explicitement fourni, sans transfert sur la console.
 9. Adaptateur de lecture RAGE/RPF8 (ps4_lml_bridge/runtime/rage_vfs_redirect.h/.cpp) implémenté avec API C, callbacks vers backend original, gestion des handles et métadonnées, et remplacement de chemins de chargeurs texte. Compilation Orbis PRX 19 exports vérifiée ; aucun hook non validé posé dans l'EBOOT.
 
 11. **RDR2 PS4 1.00 en priorité :** PRX indépendant `LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx` construit avec 13 exports. Profil EBOOT 1.00, contrôle FNV des 112 méthodes virtuelles, trace Open par vtable privée d'une seule instance, retrait conditionnel et permanence du module après activation. Stress multithread hôte + exceptions vérifiés. **Mode passif par défaut, aucun hook automatique ni remplacement in-game.** Voir `orbis/RDR2_PS4_100_TRACE_STATUS.md`.
+
+12. **Préparation de l'installation RDR2 PS4 1.00 :** documentation FTP etaHEN Unified dans `orbis/INSTALL_PS5_100.md` ; script `orbis/stage_pack_trace_100.py` produit uniquement un dossier local après saisie du vrai CUSA, contrôle SHA-256 et verrouillage du profil 1.00. Aucune connexion PS5 ni installation sur console n'a été effectuée. Cinq tests de staging spécifiques passent.
 
 ## Matrice de statut
 

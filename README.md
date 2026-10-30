@@ -14,12 +14,24 @@ Reconstruction et tests Windows, depuis la racine du dépôt :
 
 Les tests incluent ouvertures concurrentes, exceptions, refus de détachement pendant une opération et appels tardifs après retrait. Les PRX restent sur le PC et ne sont pas publiés dans le dépôt public.
 
+## Installation du PRX 1.00 sur PS5 13.60 (test passif)
+
+Voir `orbis/INSTALL_PS5_100.md` pour les étapes FTP / etaHEN Unified,
+activation, logs et désinstallation. Pour préparer une arborescence de
+copie sur PC après vérification du **vrai CUSA** :
+
+    python -B .\orbis\stage_pack_trace_100.py --title-id CUSA12345 --out .\ps5_install_100
+
+`CUSA12345` est un exemple **fictif à remplacer**. Le script refuse les
+mauvais Title IDs, les fichiers PRX altérés et tout dossier existant. Il
+prépare uniquement un dossier local, sans copier quoi que ce soit sur PS5.
+
 ## Fichiers
 
 - compiler.py : lit les install.xml, valide et prépare des dossiers d'assets, sans exécuter les binaires d'origine
 - runtime/overlay_index.hpp et runtime/overlay_index.cpp : moteur C++17 portable de résolution de chemins, sans dépendances Windows ni injection dans le jeu
 - runtime/overlay_probe.cpp : banc de test Windows du moteur C++, pas un exécutable PlayStation
-- tests/ : 54 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
+- tests/ : 59 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
 - staged_samples_v2/catalog.json : catalogue complet des ressources et avertissements d'intégration
 - staged_samples_v2/overlay.map : table compacte pour le moteur C++ portable
 - staged_samples_v2/payload : copies octet pour octet des 14 ressources d'exemple
@@ -53,7 +65,7 @@ Cinq exemples convertis, soit 14 ressources et 20 164 930 octets, vérifiés par
 | FileReplacement | 8 chemins |
 | StreamingFile | 2 fichiers |
 | DataFile | 4 déclarations |
-| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 54 réussis |
+| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 59 réussis |
 
 Classification du contenu :
 - 9 ressources .ymt/.ymap/.ytyp/.ymf contenant du XML (sérialisation/compatibilité RAGE-PSO manquante)

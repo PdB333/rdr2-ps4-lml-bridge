@@ -3,8 +3,9 @@
 ## Goal and status
 
 Build an independent LML-style file replacement bridge for Red Dead
-Redemption 2, **PS4 title update 1.32**, running as a PS4 game on a
-**PS5 firmware 13.60 jailbreak**. Focus on offline story mode.
+Redemption 2 on a **PS5 firmware 13.60 jailbreak**. Work on **PS4 1.00
+FIRST** using the owner-confirmed EBOOT (SHA-256 e3ae087f...), then
+support PS4 1.32 using a separate EBOOT and version profile. Focus on offline story mode.
 
 The source and Orbis PRX compile successfully. This is **NOT a functioning
 in-game modloader yet**. The RAGE/RPF8 read-through replacement and XML/text
@@ -13,6 +14,23 @@ Version-specific interception of RDR2 PS4 1.32 has NOT been installed.
 The exported lml_rage_game_hook_installed() currently returns 0.
 
 Do not report simulated success as a successful in-game hook.
+
+## Current PS4 1.00 deliverable (October 30, 2026)
+
+`orbis/build_pack_trace_100.ps1` produces a real Orbis PRX named
+`LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx` (local, Git-ignored).
+It does **not** auto-install a game hook. A carefully gated one-instance
+fiPackfile8 Open observer is implemented in `runtime/rdr2_100_pack_trace.*`,
+with a bounded registry probe in `runtime/rdr2_100_registry.*` and a
+full 112-slot vtable identity check. Retired shadow tables are never reused;
+once attached, the PRX must stay resident for the process lifetime. The
+owner's 1.00 code was checked by hash and method identity, but real-game
+object lifetime, plugin injection, and RPF8 replacement still require testing.
+
+Run `tools/verify_pack_trace_100.ps1` from the repo root for the host stress
+tests, Orbis PRX, and full unit suite. Detailed engineering status is in
+`orbis/RDR2_PS4_100_TRACE_STATUS.md`. Do not describe this as a working
+file modloader; **Open tracing is not byte replacement**.
 
 ## Primary files
 
@@ -32,6 +50,11 @@ Do not report simulated success as a successful in-game hook.
   simulated game VFS, MODDED_CONTENT vs ORIGINAL_CONTENT.
 - orbis/RAGE_VFS_132_PORT.md, orbis/CONSOLE_DIAGNOSTIC.md and
   PORTING_STATUS.md: detailed analysis, console test protocol, limitations.
+- orbis/RDR2_PS4_100_TRACE_STATUS.md: authoritative one-version hook boundary,
+  zero game writes on module_start, safety/lifetime conditions and results.
+- tools/verify_eboot_100.py: independent verification of the original user
+  EBOOT, all 112 vtable function pointers and source SHA-256.
+- tools/verify_pack_trace_100.ps1: cross compile and full host validation.
 
 ## Local Windows environment
 
@@ -55,7 +78,7 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The Windows project currently passes 48 offline tests (including the EBOOT fingerprint guard). A fresh
+The Windows project currently passes 54 offline tests (including the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 

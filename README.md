@@ -1,15 +1,25 @@
 # RDR2 LML Bridge — prototype indépendant pour un futur port PS4/PS5
 
-État au 28 octobre 2026. Ce projet **n'est pas un vfs.asi converti en .prx** et ne fonctionne pas encore dans RDR2 sur console. Il porte uniquement la partie indépendante du moteur : lecture de descriptions de mods, préparation des ressources et correspondance de chemins.
+État actualisé le 30 octobre 2026. Ce projet **n'est pas un vfs.asi converti en .prx** et ne fonctionne pas encore dans RDR2 sur console. Il porte uniquement la partie indépendante du moteur : lecture de descriptions de mods, préparation des ressources et correspondance de chemins.
 
-Cible : RDR2 **version PS4 1.32**, sur **PS5 jailbreakée firmware 13.60**.
+**Priorité de développement : RDR2 PS4 1.00** (EBOOT réel analysé, SHA-256 e3ae087f...). **Deuxième cible : RDR2 PS4 1.32**, qui demandera son propre EBOOT, sur PS5 jailbreakée firmware 13.60. Aucune des deux versions n'a été validée en jeu avec le modloader.
+
+## Nouveau module fiPackfile8 pour PS4 1.00
+
+Le module local `orbis_build/LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx` est compilé avec OpenOrbis : **13 exports**, vtable fiPackfile8 **112 méthodes vérifiées**, garde-fou de patch **1.00 strict**, scanner du registre candidat, trace réversible sur une seule instance. Il démarre en **mode passif** (aucune écriture mémoire au démarrage). Le PRX ne remplace pas encore les fichiers RPF8 en jeu et son chargement sur PS5 n'est pas testé. Voir `orbis/RDR2_PS4_100_TRACE_STATUS.md`.
+
+Reconstruction et tests Windows, depuis la racine du dépôt :
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\verify_pack_trace_100.ps1
+
+Les tests incluent ouvertures concurrentes, exceptions, refus de détachement pendant une opération et appels tardifs après retrait. Les PRX restent sur le PC et ne sont pas publiés dans le dépôt public.
 
 ## Fichiers
 
 - compiler.py : lit les install.xml, valide et prépare des dossiers d'assets, sans exécuter les binaires d'origine
 - runtime/overlay_index.hpp et runtime/overlay_index.cpp : moteur C++17 portable de résolution de chemins, sans dépendances Windows ni injection dans le jeu
 - runtime/overlay_probe.cpp : banc de test Windows du moteur C++, pas un exécutable PlayStation
-- tests/ : 48 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
+- tests/ : 54 tests de parsing LML, redirection RAGE/VFS, sécurité des chemins, contrat ABI, staging etaHEN et structure PRX Orbis
 - staged_samples_v2/catalog.json : catalogue complet des ressources et avertissements d'intégration
 - staged_samples_v2/overlay.map : table compacte pour le moteur C++ portable
 - staged_samples_v2/payload : copies octet pour octet des 14 ressources d'exemple
@@ -26,6 +36,11 @@ Cible : RDR2 **version PS4 1.32**, sur **PS5 jailbreakée firmware 13.60**.
 - orbis/RAGE_VFS_132_PORT.md : architecture détaillée du hook RAGE, limites des formats et prérequis exacts de la version PS4 1.32
 - orbis/EBOOT_RAGE_VFS_PROFILE.md et tools/inspect_rdr2_eboot.py : analyse statique de l'EBOOT **PS4 1.00** fourni, vtable fiPackfile8 et RVA candidats **strictement 1.00**, jamais transférables tels quels en 1.32
 - runtime/rage_eboot_profile.c et .h : garde-fou en lecture seule compilé dans le PRX ; exige la version 1.00 et refuse explicitement 1.32
+- runtime/rdr2_100_pack_trace.h/.cpp : trace Open fiPackfile8 par vtable privée, CAS atomique, retrait sûr sous verrou de cycle de vie et interdiction de décharger après activation
+- runtime/rdr2_100_registry.h/.c : inspection bornée et en lecture seule du registre candidat d'instances v1.00
+- tools/verify_eboot_100.py : empreinte SHA-256 et empreinte complète des 112 méthodes de l'EBOOT 1.00, sans modification de l'exécutable
+- tools/verify_pack_trace_100.ps1 et tests/test_rdr2_100_* : compilation et validation du PRX Orbis / stress hôte
+- orbis/RDR2_PS4_100_TRACE_STATUS.md : contrat de compatibilité 1.00, risques mémoire, périmètre du mode passif et étapes de test console
 
 Les fichiers originaux ModLoader/vfs.asi, ModManager.* et les autres binaires n'ont pas été modifiés.
 
@@ -38,7 +53,7 @@ Cinq exemples convertis, soit 14 ressources et 20 164 930 octets, vérifiés par
 | FileReplacement | 8 chemins |
 | StreamingFile | 2 fichiers |
 | DataFile | 4 déclarations |
-| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 48 réussis |
+| Tests Python, C++, VFS/RPF8 simulé et structure PRX (hors console) | 54 réussis |
 
 Classification du contenu :
 - 9 ressources .ymt/.ymap/.ytyp/.ymf contenant du XML (sérialisation/compatibilité RAGE-PSO manquante)
@@ -87,7 +102,7 @@ Les types pris en charge par ce prototype sont FileReplacement, StreamingFile, D
 4. Fournir la capacité de déclarer les assets en streaming et les types de DataFile dans le moteur RDR2, ainsi que les ressources XML/RAGE/PSO et tables de chaînes.
 5. Tester un seul remplacement réversible dans RDR2 en mode histoire, hors ligne, avant d'ajouter les autres fonctions.
 
-Cinq PRX de diagnostic/développement existent dont le nouvel adaptateur rage_vfs_adapter. Le remplaçant VFS donne réellement les octets moddés **lorsqu'il reçoit des appels par l'ABI testée**, mais aucun hook n'a été posé dans l'EBOOT RDR2 1.32. Aucun **modloader PRX fonctionnel dans le vrai jeu**, test sur console ou validation des ressources PS4 n'a été réalisé. Voir orbis/RAGE_VFS_132_PORT.md et orbis/CONSOLE_DIAGNOSTIC.md.
+Six PRX de diagnostic/développement existent localement, dont le nouveau traceur fiPackfile8 1.00 et l'adaptateur rage_vfs_adapter. Le remplaçant VFS donne réellement les octets moddés **lorsqu'il reçoit des appels par l'ABI testée**, mais aucun hook n'a été posé dans l'EBOOT RDR2 1.32. Aucun **modloader PRX fonctionnel dans le vrai jeu**, test sur console ou validation des ressources PS4 n'a été réalisé. Voir orbis/RAGE_VFS_132_PORT.md et orbis/CONSOLE_DIAGNOSTIC.md.
 
 ## Droits / provenance
 

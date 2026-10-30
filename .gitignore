@@ -37,3 +37,5 @@ orbis_build/*
 !orbis_build/runtime_probe_report.json
 !orbis_build/rage_vfs_report.json
 !orbis_build/FINAL_RAGE_VFS_VALIDATION.json
+!orbis_build/pack_trace_100_report.json
+!orbis_build/pack_trace_100_final_validation.json

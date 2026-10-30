@@ -1,0 +1,32 @@
+﻿{
+    "artifact":  "LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx",
+    "profile_game":  "RDR2 PS4 1.00",
+    "profile_source_eboot_sha256":  "e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff",
+    "profile_vtable_slots":  112,
+    "profile_vtable_fnv64":  "8eaecb696678dad0",
+    "bytes":  532304,
+    "sha256":  "1baefea5254f3c21d45c6389287bece9198e3c742c38f3e2d7d3a7c887ac3e8a",
+    "exported_symbols":  [
+                             "module_start",
+                             "module_stop",
+                             "lml_rdr2_100_trace_abi_version",
+                             "lml_rdr2_100_trace_autohook_installed",
+                             "lml_eboot_verify_profile",
+                             "rdr2_100_find_pack_instances",
+                             "rdr2_100_pack_preflight",
+                             "rdr2_100_pack_trace_attach_checked",
+                             "rdr2_100_pack_trace_detach",
+                             "rdr2_100_pack_trace_is_attached",
+                             "rdr2_100_pack_trace_open_calls",
+                             "rdr2_100_pack_trace_active_calls",
+                             "rdr2_100_pack_trace_may_unload"
+                         ],
+    "host_only_fixture_not_exported":  true,
+    "version_1_32_rejected_before_memory_read":  true,
+    "auto_installed_in_game":  false,
+    "read_only_trace_only":  true,
+    "direct_resource_replacement_available":  false,
+    "requires_validated_game_base_and_pinned_instance":  true,
+    "requires_module_to_remain_loaded_after_attach":  true,
+    "console_tested":  false
+}

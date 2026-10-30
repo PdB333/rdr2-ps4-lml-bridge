@@ -1,0 +1,19 @@
+﻿{
+    "target":  "Red Dead Redemption 2 PS4 1.00",
+    "sha256_of_owner_eboot":  "e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff",
+    "result":  "OFFLINE_TESTS_AND_ORBIS_PRX_BUILT",
+    "report_file":  "pack_trace_100_report.json",
+    "prx_file":  "LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx",
+    "prx_bytes":  532304,
+    "prx_sha256":  "1baefea5254f3c21d45c6389287bece9198e3c742c38f3e2d7d3a7c887ac3e8a",
+    "full_vtable_methods_verified":  112,
+    "host_stress_multithread_passed":  true,
+    "host_original_fallback_passed":  true,
+    "host_detach_busy_and_stale_pointer_passed":  true,
+    "hosted_exception_safety_passed":  true,
+    "source_LML_original_unchanged":  true,
+    "original_RAGE_RPF8_handles_returned":  true,
+    "actual_resource_replacement_in_game":  false,
+    "live_PS5_tested":  false,
+    "auto_hook_installed":  false
+}

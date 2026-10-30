@@ -15,6 +15,20 @@ The exported lml_rage_game_hook_installed() currently returns 0.
 
 Do not report simulated success as a successful in-game hook.
 
+## Actual console configuration and networking
+
+User confirmed: **Y2JB 13.60 + Kstuff Lite + ShadowMountPlus** and a
+Payload Manager, **NO etaHEN**. Do not recommend copying to etaHEN
+`game_plugins` on this setup. The Windows workstation accessed via
+mcp__testn__ tools has an active Ethernet LAN (192.168.1.x currently).
+A LAN-only, read-only protocol probe is implemented in
+`tools/ps5debug_ng_probe.py` and tested with fake TCP/UDP servers.
+User will need to load the official ps5debug-NG v1.3.2 ELF using a
+compatible Y2JB ELF/umtx payload loader and confirm the PS5 IP or
+UDP discovery. No real PS5 LAN/debugger connection has been established
+in this workflow. No remote port forwarding or Internet exposure.
+See `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
+
 ## Current PS4 1.00 deliverable (October 30, 2026)
 
 `orbis/build_pack_trace_100.ps1` produces a real Orbis PRX named
@@ -90,7 +104,7 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The Windows project currently passes 59 offline tests (including the EBOOT fingerprint guard). A fresh
+The Windows project currently passes 68 offline tests (including the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 

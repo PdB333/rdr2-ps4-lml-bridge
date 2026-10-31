@@ -28,22 +28,63 @@ Pas de commande « charger un PRX ». Primitives utiles :
 `CMD_PROC_ELF_RPC 0xBDAA0010`, `CMD_PROC_PROTECT 0xBDAA0008`.
 `CMD_PROC_INTALL` est un stub (renvoie 0).
 
-Méthode envisagée : allouer une petite zone, y écrire le chemin du PRX,
-puis `CMD_PROC_CALL(sceKernelLoadStartModule, chemin, 0, 0, 0, 0, 0)` ;
-le handle renvoyé (> 0) et le journal `[LML-100-TRACE] MODULE_ENTRY`
-prouveraient le chargement. Le PRX actuel est passif (aucun hook).
+Méthode initialement envisagée — `CMD_PROC_CALL(sceKernelLoadStartModule,
+chemin, …)` — **écartée** : voir la table d'imports ci-dessous, le jeu
+n'importe pas ce symbole et son GOT est à zéro en RAM. Il faut d'abord
+obtenir une adresse de primitive fiable (section « GOT lue à zéro »). Le PRX
+actuel reste passif (aucun hook).
+
+## Table d'imports de l'EBOOT (vérifiée hors-ligne)
+
+`tools/inspect_rdr2_imports.py` (SHA-256 1.00, lecture seule, testé par
+`tests/test_inspect_rdr2_imports.py` avec paires NID connues :
+malloc=`gQX+4GDQjpM`, printf=`hcuQgD53UxM`,
+sceKernelLoadStartModule=`wzvqT4UqKX8`). 665 imports JMPREL, 687 symboles,
+`DT_SCE_PLTGOT` RVA `0x0678CC50`. Résultats clés :
+
+| Symbole | Importé | GOT (r_offset) RVA |
+| --- | --- | --- |
+| `sceKernelLoadStartModule` | **non** | — |
+| `sceKernelLoadStartModuleForPlugin` | non | — |
+| `sceSysmoduleLoadModule` | **oui** | `0x0678CEB8` |
+| `sceKernelOpen` | oui | `0x0678CDA0` |
+| `sceKernelStat` | oui | `0x0678D128` |
+| `stat` | oui | `0x0678DD40` |
+| `fopen` | oui | `0x0678DD98` |
+| `malloc` | oui | `0x0678D478` |
+| `printf` | oui | `0x0678CFF0` |
+
+Conséquence directe : la méthode « CALL sur une entrée GOT de
+`sceKernelLoadStartModule` du jeu » est **impossible** — le jeu n'importe pas
+ce symbole. `sceSysmoduleLoadModule` est importé mais ne charge que des
+modules système par identifiant, pas un PRX arbitraire par chemin.
+
+## GOT lue à zéro en RAM (constat ouvert)
+
+Lecture seule des RVA GOT ci-dessus en RAM (`base + 0x0678Cxxx`,
+région RELRO r-- `0x06814000`–`0x06B90000`) : **toutes à zéro**, alors que la
+vtable fiPackfile8 (`base + 0x066B00F8`, même région) est correctement
+peuplée. Donc les pointeurs de fonctions importées **ne sont pas lisibles
+dans un GOT data** à ces adresses. Deux explications candidates, non
+tranchées (aucune écriture faite) :
+
+1. le chargeur Orbis sous ce jailbreak patche directement les stubs PLT
+   (région r-x) plutôt que de remplir un GOT data ;
+2. ces slots relèvent d'une liaison paresseuse non encore déclenchée.
+
+Conséquence : l'adresse d'une fonction `libkernel`/`libc` pour un
+`CMD_PROC_CALL` **ne peut pas** être moissonnée depuis le GOT du jeu. Voies à
+étudier : (a) résoudre depuis la base du module `libkernel.sprx` mappé dans le
+processus (vu en maps vers `0x800000000`) via sa propre table d'exports, si
+ps5debug-NG expose l'info module ; (b) utiliser `CMD_PROC_ELF_RPC`
+(`0xBDAA0010`) avec un stub autonome.
 
 ## Bloquants restants
 
-1. **Adresse de `sceKernelLoadStartModule` inconnue.** La table des symboles
-   de `libkernel.sprx` n'est pas mappée côté utilisateur ; aucune adresse ne
-   doit être devinée. Voie recommandée : à partir de l'EBOOT privé, lire la
-   table d'imports (DT_SCE_*, relocations `JUMP_SLOT`) pour trouver l'entrée
-   GOT de ce symbole, si le jeu l'importe ; puis **lire** cette entrée en RAM
-   (base + RVA du GOT) et exiger qu'elle pointe dans la région r-x de
-   `libkernel.sprx`. Si RDR2 ne l'importe pas, il faudra une autre
-   source fiable (par exemple via `libSceSysmodule`), à étudier.
-   **Nécessite l'EBOOT** : il n'est pas sur ce PC.
+1. **Adresse d'une primitive de chargement inconnue.** Confirmé ci-dessus :
+   le GOT du jeu ne la fournit pas (zéro en RAM) et
+   `sceKernelLoadStartModule` n'est pas importé. Aucune adresse ne doit être
+   devinée. Voies recommandées : (a) ou (b) de la section précédente.
 2. **Chemin visible depuis le bac à sable du jeu.** Un chemin `/data/...`
    n'est pas garanti visible par un processus PS4 sous Kstuff Lite. À tester
    par un appel en lecture (par exemple `stat`) avant tout chargement.

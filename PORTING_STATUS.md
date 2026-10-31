@@ -15,7 +15,7 @@ Dernière vérification : 31 octobre 2026.
 2. Cœur C++17 portable : ps4_lml_bridge/runtime/overlay_index.hpp et overlay_index.cpp.
 3. Programme de test Windows : ps4_lml_bridge/runtime/overlay_probe.exe, compilé statiquement.
 4. Paquet d'exemples : ps4_lml_bridge/staged_samples_v2, avec 5 mods, 14 ressources et 20 164 930 octets.
-5. 76 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
+5. 117 tests Python/C++ incluant redirection d'octets RAGE VFS, fallbacks RPF, chargement de cartes, exports Orbis et staging etaHEN réussis.
 6. Les 14 hashes des ressources copiées correspondent aux sources d'origine.
 7. Compilateur croisé OpenOrbis 0.5.4 / LLVM 18.1.8 installé en isolation. Quatre PRX de diagnostic compilés hors console ; les deux nouveaux exportent explicitement module_start, et le runtime C++ peut charger automatiquement le catalogue en lecture seule.
 8. Le staging local etaHEN peut préparer un dossier de test pour un Title ID explicitement fourni, sans transfert sur la console.
@@ -32,6 +32,15 @@ Dernière vérification : 31 octobre 2026.
    une option `--expected-fw` pour les tests futurs. Le script exige `--tailscale`
    et une route Windows Tailscale vérifiée pour les adresses 100.64/10.
 
+14. **PS5 13.40 / RDR2 CUSA08519 réellement en marche :** via le réseau
+    privé Tailscale et ps5debug-NG, lecture **seulement** des processus
+    et de la carte mémoire, version APP_VER **01.00** confirmée.
+    L'examen limité à huit lectures (1 005 octets) a produit un
+    résultat **NON CONFORME** au profil fiPackfile8 du fichier EBOOT
+    autrefois fourni. La table RAGE n'est PAS à l'ancienne adresse.
+    **Aucun hook, patch ou PRX n'a été injecté.** Voir
+    `orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`.
+
 ## Matrice de statut
 
 | Capacité | Statut |
@@ -42,6 +51,9 @@ Dernière vérification : 31 octobre 2026.
 | Compiler C++17 du résolveur sur Windows | Fait / testé |
 | Compiler un module PRX Orbis de diagnostic | Fait / six PRX locaux, dont un traceur réservé à PS4 1.00 |
 | Préflight vtable fiPackfile8 1.00 / 112 slots | Fait / code et tests positifs/négatifs hors console |
+| Vérifier le même profil fiPackfile8 dans le vrai RDR2 CUSA08519 01.00 | **Échec en direct : signatures incompatibles. Interdiction du hook** |
+| Identifier le vrai jeu via ps5debug-NG | **Fait : CUSA08519, APP_VER 01.00, PS5 FW13.40** |
+| Obtenir la carte VM réelle en lecture seule | **Fait : région principale identifiée, base non confirmée** |
 | Tracer Open sur un objet de test concurrent | Fait / trace réversible, conservation des handles originaux |
 | Brancher le traceur au processus réel RDR2 1.00 | **Non fait / pas de test console** |
 | Tester le chargement de overlay.map dans un PRX en lecture seule sur PC | Fait / tests de simulation, aucun test sur console |
@@ -61,7 +73,7 @@ Dernière vérification : 31 octobre 2026.
 
 Le code portable fournit : une recherche de remplacement par GamePath, une recherche de ressource streaming par nom et une recherche de DataFile par type et nom. Il lit une table de mappings déterministe, refuse les doublons et vérifie l'existence/la taille des fichiers.
 
-Le nouveau corps du hook RAGE VFS (rage_vfs_redirect.cpp) redirige le flux d'octets et les métadonnées avec rappel aux fonctions d'origine en cas d'échec, et peut transmettre un chemin physique pour un chargeur de texte. L'adaptateur propre au jeu doit encore brancher les appels réels de fiDevice de RDR2 PS4 1.32 : l'ELF fourni est maintenant analysé statiquement (SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff) et ses RTTI/vtables fiPackfile8 donnent des RVA candidats. L'utilisateur a confirmé que cet EBOOT est **PS4 1.00** et NON 1.32. Son Title ID CUSA, les ABI des autres méthodes et l'exécution en jeu restent non confirmés ; aucun trampoline n'est installé. Pour StreamingFile et DataFile, les enregistrements dans RAGE restent à développer. Ces adresses dérivent exclusivement de l'EBOOT **1.00** : elles sont invalides comme profil de référence pour la version **1.32** tant qu'un EBOOT 1.32 n'a pas été analysé.
+Le nouveau corps du hook RAGE VFS (rage_vfs_redirect.cpp) redirige le flux d'octets et les métadonnées avec rappel aux fonctions d'origine en cas d'échec, et peut transmettre un chemin physique pour un chargeur de texte. L'adaptateur propre au jeu doit encore brancher les appels réels de fiDevice de RDR2 PS4 1.32 : l'ELF fourni est maintenant analysé statiquement (SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff) et ses RTTI/vtables fiPackfile8 donnent des RVA candidats. L'utilisateur a confirmé que cet EBOOT est **PS4 1.00** et NON 1.32. Son Title ID CUSA, les ABI des autres méthodes et l'identité de ce binaire par rapport au jeu chargé restent non confirmées ; aucun trampoline n'est installé. Pour StreamingFile et DataFile, les enregistrements dans RAGE restent à développer. Ces adresses dérivent exclusivement de l'EBOOT **1.00** : elles sont invalides comme profil de référence pour la version **1.32** tant qu'un EBOOT 1.32 n'a pas été analysé.
 
 **Priorité utilisateur établie :** RDR2 PS4 **1.00 d'abord**, ensuite 1.32, sur PS5 firmware **13.40** jailbreakée, version confirmée. Le toolchain Orbis est installé localement et les PRX sont compilés. Le chargement réel dans le processus de RDR2 n'a pas été validé. Une erreur mprotect a été signalée historiquement sous etaHEN sur 13.60 avec CUSA08519 ; ce n'est pas la configuration actuelle. Voir orbis/CONSOLE_DIAGNOSTIC.md et orbis/README_PS5_1360.md. Un PRX Orbis compilé ne constitue pas à lui seul un modloader intégré au jeu.
 

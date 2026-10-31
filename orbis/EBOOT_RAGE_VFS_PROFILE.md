@@ -7,6 +7,18 @@ Ce document ne contient PAS le binaire du jeu.
 Les adresses qui suivent concernent seulement l'EBOOT 1.00 identifié par
 son empreinte SHA-256 ; ne pas les appliquer à un exécutable 1.32.
 
+## Avertissement suite au test de la PS5
+
+Un test réel du 31 octobre 2026 sur la PS5 FW13.40 a confirmé
+RDR2 PS4 **CUSA08519, APP_VER 01.00**, mais **les signatures ci-dessous
+ne correspondent pas au processus du jeu**. Le début de la région
+principale était cohérent avec le placement lié, mais les RVAs de
+type RTTI, vtable et méthodes renvoyaient des octets différents.
+Le code a correctement refusé le hook. Les RVA de ce rapport sont
+STRICTEMENT propres au fichier SHA-256 indiqué, pas à toutes les
+installations RDR2 ayant des métadonnées 1.00. Voir
+`orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`.
+
 ## Identité du fichier
 
 - Fichier utilisateur : eboot.bin, 121 670 745 octets, ELF x86-64 Orbis

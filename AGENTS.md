@@ -25,12 +25,34 @@ A read-only identity/firmware probe is implemented in
 `tools/ps5debug_ng_probe.py`, including strict opt-in `--tailscale`
 for 100.64.0.0/10 with Windows Tailscale route verification. Its two
 version commands were run against a reachable Tailscale-routed
-ps5debug-NG v1.3.2 server. The server announced **13.40**, and the owner
-confirmed that **13.40 is the correct firmware**. This version-only
-connection is now verified. **No game was running, no process listing or
-memory access was performed**, and no in-game RDR2 hook is installed.
+ps5debug-NG v1.3.2 server. The server announced **13.40**, confirmed by the owner.
+Since then RDR2 was launched, its process metadata/VM maps were read,
+and a bounded 1,005-byte live fingerprint was performed; these
+signatures **do not match** the old EBOOT. No game memory was modified,
+no hook installed, no debugger attach, and no PRX injection.
 No remote port forwarding or Internet exposure.
 See `orbis/PS5DEBUG_NG_LOCAL_NETWORK.md`.
+
+## LIVE PS5 13.40 / RDR2 CUSA08519 on October 31, 2026
+
+Owner launched RDR2 PS4. On the real console, ps5debug-NG v1.3.2
+read-only checks returned RDR2 **CUSA08519**, APP_VER **01.00** and
+one matching `eboot.bin` process. A bounded CMD_PROC_MAPS retrieved
+~10,000 region metadata entries and identified `executable` mapped
+from linked 0x00400000. Eight strictly bounded CMD_PROC_READs,
+**1,005 bytes total**, tested the static fiPackfile8 v1.00 profile.
+All signatures **MISMATCHED**: RTTI type name, vtable header,
+112-slot normalized FNV, five methods and four code prefixes.
+The process reads returned real nonzero bytes, not all-zero buffers.
+Do NOT use old `0x066B00F8` vtable or `0x0452A480` Open on the live
+game, do NOT install any hook. The user's uploaded 1.00 EBOOT may be
+a different region/build; current CUSA08519 EBOOT exact bytes/sha
+are NOT established. No game RAM writes, no injects, no hooks.
+
+Read `orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md` before ANY work on
+RAGE addresses or game-memory access. Separate host tests (117)
+from actual console observations. Keep private Tailscale device IPs,
+local user paths and live process data out of Git.
 
 ## Current PS4 1.00 deliverable (October 30, 2026)
 
@@ -116,7 +138,7 @@ for full test coverage; missing build outputs can cause skips or errors.
 1. A user-supplied **RDR2 PS4 1.00** ELF was inspected privately (121670745 bytes,
    SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff).
    The ELF itself must never be uploaded. The user explicitly confirmed it is
-   version 1.00, NOT 1.32. The Title ID CUSA remains unknown. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
+   version 1.00, NOT 1.32. The Title ID of that UPLOADED EBOOT remains unknown; the LIVE console game CUSA is CUSA08519. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
    tools/inspect_rdr2_eboot.py for reproducible static evidence.
 2. The **1.00** upload contains fiPackfile8 RTTI/vtable RVA 0x066B00F8
    and candidate Open at 0x0452A480. runtime/rage_eboot_profile.c now requires

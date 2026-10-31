@@ -4,6 +4,18 @@
 distincte.** Ce document décrit uniquement des composants indépendants ;
 il ne contient ni jeu, ni EBOOT, ni binaire propriétaire LML.
 
+## Avertissement critique : test PS5 LIVE effectué le 31 octobre 2026
+
+La PS5 **13.40**, avec Y2JB/Kstuff Lite et ps5debug-NG, a identifié
+le jeu réellement lancé : **RDR2 PS4 CUSA08519 v01.00**. Le
+profil fiPackfile8 de CET ancien EBOOT n'a **pas correspondu**
+au vrai processus : RTTI, vtable et quatre préfixes de code différents,
+avec des données mémoire réelles non nulles. **Ne pas armer le
+hook `rdr2_100_pack_trace_attach_checked` sur cette console.**
+Ce PRX compilé est seulement un devkit hors-jeu ; aucun chargement
+dans le jeu n'a été testé. Voir
+`orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`.
+
 ## Identité de la version
 
 L'EBOOT analysé, déclaré par son propriétaire comme **RDR2 PS4 1.00**,
@@ -24,8 +36,10 @@ Classes et méthodes observées directement dans ce fichier :
 | Méthode Close / slot 19 | 0x0452BE00 |
 | Registre d'instances candidat | 0x08053D40 |
 
-Les signatures ne sont PAS celles de la version 1.32. Le Title ID CUSA
-précis n'a pas encore été vérifié sur console.
+Les signatures de cet EBOOT ne sont PAS celles de la version 1.32.
+Le Title ID de l'EBOOT FICHIER analysé reste inconnu ; en revanche,
+le vrai jeu sur console annonce CUSA08519/01.00 et ne correspond
+pas au profil, malgré ce numéro de patch.
 
 ## Ce qui est compilé
 

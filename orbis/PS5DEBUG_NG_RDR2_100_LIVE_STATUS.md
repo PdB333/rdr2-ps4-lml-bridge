@@ -1,0 +1,93 @@
+# Validation réelle sur PS5 13.40 / RDR2 PS4 CUSA08519 v01.00
+
+## Synthèse du test sur console (31 octobre 2026)
+
+Le propriétaire a confirmé la configuration actuelle :
+
+- PS5 **firmware système 13.40**, via **Y2JB + Kstuff Lite +
+  ShadowMountPlus** ; pas d'etaHEN.
+- ps5debug-NG **v1.3.2**, capability 1.1, relié au PC Windows par
+  **Tailscale**. Aucun port Internet ouvert ou transfert de console.
+- RDR2 **PS4 CUSA08519**, version de l'application **01.00**, détecté
+  au premier plan via CMD_PROC_LIST et CMD_CONSOLE_FOREGROUND.
+- **Ne PAS publier l'adresse IP Tailscale de la console ou celle du PC**.
+  Le PID est temporaire et peut changer à chaque lancement.
+
+Sources indépendantes confirmant CUSA08519 comme RDR2 PS4 Europe :
+https://serialstation.com/titles/CUSA/08519
+
+Le profil EBOOT précédemment fourni (SHA-256
+e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff)
+est une **analyse statique d'un autre fichier local** déclaré version
+1.00 par l'utilisateur. Le SHA-256 du véritable processus n'a pas
+été établi et la correspondance entre les deux exécutables **n'est
+pas confirmée**.
+
+## Ce qui a été effectué en lecture seule
+
+- tools/ps5debug_ng_probe.py : branding, firmware et vérification de
+  route réseau (Tailscale opt-in).
+- tools/ps5debug_ng_rdr2_identity.py : liste limitée des processus,
+  PID/CUSA/version de l'application en cours, validation de 01.00/1.00.
+- tools/ps5debug_ng_rdr2_maps.py : carte des régions (CMD_PROC_MAPS).
+  Le processus comptait lors du test environ 10 000 régions ; l'une
+  est nommée "executable" et commence à l'adresse liée 0x00400000.
+  Le simple début de cette région ne prouve PAS la base de chargement
+  de l'EBOOT analysé.
+- tools/ps5debug_ng_rdr2_100_live_profile.py : huit lectures bornées
+  via CMD_PROC_READ, **au total 1 005 octets**. Les adresses sont
+  choisies UNIQUEMENT depuis le profil statique connu de 1.00,
+  à condition d'appartenir à la région principale lisible/exécutable.
+  Aucun dump de l'EBOOT, aucun scan de mémoire étendu, aucun
+  breakpoint, aucune écriture ni injection.
+
+## Résultat critique : SIGNATURES LIVE INCOMPATIBLES
+
+Les contrôles de l'exécutable chargé ont échoué aux RVAs attendues
+pour le profil fiPackfile8 original :
+
+- Nom de type RTTI **différent**, malgré la présence de données
+  mémoire non nulles à l'adresse lue.
+- En-tête de vtable **différent** : la région à l'ancienne adresse
+  ne contient pas l'offset-to-top/RTTI attendus.
+- 112 pointeurs virtuels **différents** (l'empreinte statique
+  8eaecb696678dad0 n'est pas retrouvée).
+- Préfixes de code aux quatre RVAs candidats **différents**.
+- L'observation de données mémoire non nulles écarte la simple
+  hypothèse selon laquelle toutes les lectures auraient répondu
+  des zéros.
+
+**Conséquence : il est INTERDIT d'installer le hook fiPackfile8 de
+l'ancien EBOOT sur le processus en cours.** Le mécanisme de
+préflight a correctement refusé la signature. Aucun module PRX n'a
+été installé dans RDR2 et aucun des hooks n'est actif.
+
+Cela ne prouve pas que le jeu tourne en version 1.32 : les
+métadonnées indiquent **01.00**. L'une des explications possibles est
+une différence d'édition/région/construction de l'EBOOT ; d'autres
+écarts dans le chargement/placement des sections sont possibles.
+On ne doit PAS inventer une nouvelle base ou appliquer de correction
+d'adresses par simple soustraction.
+
+## Étapes techniques obligatoires avant un hook réel
+
+1. Vérifier l'origine **CUSA08519** et le hash du EBOOT déchiffré
+   correspondant exactement au jeu présent sur la console.
+2. Dans l'EBOOT exact, analyser le type RAGE fiPackfile8, la table
+   virtuelle, les noms RTTI et les ABIs. Comparer ces signatures
+   avec un jeu lancé, **uniquement en lecture bornée**.
+3. Etablir les RVA du vrai profil CUSA08519 v01.00 en séparant
+   les bases d'images des adresses virtuelles et en vérifiant
+   les protections mémoire et les emplacements de chaque méthode.
+4. Vérifier que le PRX passif peut être chargé sur le processus
+   PS4 depuis la configuration Y2JB 13.40 avant une activation.
+5. Préparer un hook actif seulement après une identification
+   complète du moteur, du cycle de vie de l'objet, et des ABIs
+   Open/Read/ReadBulk/Seek/Size/Close ; ne pas inventer de handles
+   RPF8 ou lancer des patches sur les signatures non vérifiées.
+
+Les deux scripts officiels de diagnostic n'envoient que les opcodes
+autorisés en lecture : CMD_PROC_LIST, CMD_CONSOLE_FOREGROUND,
+CMD_PROC_MAPS et huit CMD_PROC_READ bornés. Les scripts publies
+ne contiennent aucune adresse IP de la console, aucune sauvegarde,
+aucun dump, aucune chaine de code proprietaire extraite.

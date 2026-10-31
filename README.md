@@ -4,9 +4,29 @@
 
 **Priorité de développement : RDR2 PS4 1.00** (EBOOT réel analysé, SHA-256 e3ae087f...). **Deuxième cible : RDR2 PS4 1.32**, qui demandera son propre EBOOT, sur PS5 jailbreakée firmware **13.40** (confirmé par l'utilisateur et la sonde ps5debug-NG). Aucune des deux versions n'a été validée en jeu avec le modloader.
 
+## Test réel sur PS5 13.40 : RDR2 CUSA08519 v01.00 détecté, mais anciens RVA refusés
+
+Le **31 octobre 2026**, le serveur ps5debug-NG v1.3.2 sur le PC/Tailscale
+a identifié le processus **RDR2 PS4 CUSA08519**, version installée
+**01.00 (soit 1.00)**, puis sa carte mémoire en **lecture seule**.
+Une comparaison de **1 005 octets** sur huit positions précises a démontré
+que le vrai exécutable chargé **ne correspond pas** au profil fiPackfile8
+de l'EBOOT autrefois fourni, même après prise en compte de la région
+exécutable. Les octets lus étaient non nuls ; la table RTTI et les
+méthodes candidates ne sont pas aux RVA attendues.
+
+**Interdiction d'utiliser le hook PRX expérimental sur ce processus
+tant qu'un profil correspondant exactement au CUSA08519 v01.00
+exécuté n'a pas été établi.** La compilation hors console ne suffit pas.
+Pas de patch, pas d'injection ni de hook activé sur la PS5.
+Voir `orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`.
+Outils : `tools/ps5debug_ng_rdr2_identity.py`,
+`tools/ps5debug_ng_rdr2_maps.py`,
+`tools/ps5debug_ng_rdr2_100_live_profile.py` (lecture seule).
+
 ## Nouveau module fiPackfile8 pour PS4 1.00
 
-Le module local `orbis_build/LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx` est compilé avec OpenOrbis : **13 exports**, vtable fiPackfile8 **112 méthodes vérifiées**, garde-fou de patch **1.00 strict**, scanner du registre candidat, trace réversible sur une seule instance. Il démarre en **mode passif** (aucune écriture mémoire au démarrage). Le PRX ne remplace pas encore les fichiers RPF8 en jeu et son chargement sur PS5 n'est pas testé. Voir `orbis/RDR2_PS4_100_TRACE_STATUS.md`.
+Le module local `orbis_build/LmlBridge_RDR2_PS4_100_fiPackfile8_trace.prx` est compilé avec OpenOrbis, **mais son profil a échoué sur la vraie console CUSA08519** et il ne faut pas l'injecter : **13 exports**, vtable fiPackfile8 **112 méthodes vérifiées**, garde-fou de patch **1.00 strict**, scanner du registre candidat, trace réversible sur une seule instance. Il démarre en **mode passif** (aucune écriture mémoire au démarrage). Le PRX ne remplace pas encore les fichiers RPF8 en jeu et son chargement sur PS5 n'est pas testé. Voir `orbis/RDR2_PS4_100_TRACE_STATUS.md`.
 
 Reconstruction et tests Windows, depuis la racine du dépôt :
 

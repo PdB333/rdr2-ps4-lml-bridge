@@ -121,6 +121,25 @@ Il restera a valider sur console l'inspection RDR2 1.00, puis la
 possibilite de charger le PRX passif dans son processus. La disponibilite
 du serveur debug TCP 744 ne demontre pas un modloader fonctionnel.
 
+## EBOOT RDR2 CUSA08519, observation en lecture seule
+
+En plus de la sonde d'identité, les outils suivants ont été
+testés sur le processus réel du jeu :
+
+- `tools/ps5debug_ng_rdr2_identity.py` : liste des processus,
+  PID, CUSA et version PS4 au premier plan. La version `01.00`
+  est reconnue comme `1.00`.
+- `tools/ps5debug_ng_rdr2_maps.py` : métadonnées de carte VM,
+  sans extraction de contenu.
+- `tools/ps5debug_ng_rdr2_100_live_profile.py` : huit lectures
+  de 1 005 octets au total, uniquement pour vérifier RTTI et vtable
+  de l'ancien EBOOT.
+
+ATTENTION : **le profil statique ne correspond PAS au jeu lancé
+CUSA08519/01.00**. Ne pas injecter le PRX ou déplacer l'adresse
+du hook en devinant un décalage ; voir
+`orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`.
+
 Sources :
 https://github.com/Pharaoh2k/ps5debug-NG
 https://github.com/Pharaoh2k/ps5debug-NG/blob/master/PROTOCOL.md

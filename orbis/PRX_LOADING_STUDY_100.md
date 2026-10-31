@@ -122,6 +122,19 @@ parcourir sa table d'exports (NID `wzvqT4UqKX8`) pour résoudre l'adresse de
 `sceKernelLoadStartModule`. Cette adresse alimente `--loader-addr` de
 l'instrument d'injection.
 
+**Cette recette est outillée** : `tools/ps5debug_ng_rdr2_100_resolve_loader.py`
+(lecture seule, `CMD_PROC_READ` + `CMD_PROC_MAPS` uniquement, barrière de
+profil `check_live`, testé par `tests/test_ps5debug_ng_rdr2_100_resolve_loader.py`
+avec un module libkernel synthétique). Il lit le slot GOT ancre, trouve le
+module conteneur via maps, parse sa table d'exports Orbis en RAM (en-tête ELF
+→ `PT_DYNAMIC`/`PT_SCE_DYNLIBDATA` → `SYMTAB`/`STRTAB`) et renvoie
+`loader_addr` + un `inject_hint` (`--loader-addr 0x…`). Il **ne devine rien** :
+si le slot ancre pointe encore dans l'image du jeu (`status`
+`anchor-unresolved-in-image`) ou si le NID cible est absent du module ancre
+(`target-not-exported-by-anchor-module`), il renvoie l'état sans adresse.
+`loader_addr` est propre à CE lancement (ASLR) : à ré-exécuter avant chaque
+session d'injection.
+
 Voies de chargement (inchangées, à départager après le re-test) :
 (a) résoudre depuis la base du module `libkernel.sprx` (vu en maps vers
 `0x800000000`) via sa table d'exports ; (b) `CMD_PROC_ELF_RPC`
@@ -149,8 +162,9 @@ Voies de chargement (inchangées, à départager après le re-test) :
 Un mod qu'on voit dans RDR2 est le sommet du projet ; il reste plusieurs
 maillons **non prouvés**, dont chacun exige le jeu lancé :
 
-1. **Résoudre `--loader-addr`** (recette ci-dessus, lecture seule). — outillage
-   à écrire.
+1. **Résoudre `--loader-addr`** (recette ci-dessus, lecture seule). —
+   **outillé** (`tools/ps5debug_ng_rdr2_100_resolve_loader.py`), à exécuter en
+   live pour obtenir l'adresse réelle (encore non lancé sur console).
 2. **Faire tourner notre code** : `inject.py --arm` (CALL), ou repli
    `CMD_PROC_ELF_RPC`. Preuve réelle = trace `[LML-RAGE-VFS] MODULE_ENTRY` et
    un handle renvoyé. — non testé sur console.

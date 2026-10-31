@@ -42,3 +42,7 @@ orbis_build/*
 
 # Locally generated PS5 FTP staging folders (never publish private layout).
 ps5_install_100*/
+
+# Locally generated EBOOT-derived reports (RVAs/handler maps). Never publish.
+private-*.json
+*native-map*.json

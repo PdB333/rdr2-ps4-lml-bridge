@@ -39,6 +39,18 @@ la coder en dur) ; lecture directe des `p_vaddr` du fichier par cette session
 (EBOOT absent de la machine — la cohérence des 112 pointeurs l'implique) ;
 chargement du PRX ; tout hook. **Aucun hook n'est installé.**
 
+### En-têtes de segments lus directement dans l'EBOOT (SHA-256 vérifié)
+
+| PT | p_offset | p_vaddr | p_filesz | p_memsz | Runtime (base 0x00400000) |
+|---|---|---|---|---|---|
+| LOAD r-x | 0x4000 | 0x0 | 0x6413B30 | 0x6413B30 | 0x00400000–0x06814000 |
+| SCE_RELRO r-- | 0x6418000 | 0x6414000 | 0x37A130 | 0x37C000 | 0x06814000–0x06B90000 |
+| LOAD rw- | 0x6794000 | 0x6790000 | 0x28E5B0 | 0x1EA7825 | 0x06B90000–0x08A38000 |
+
+`e_type = 0xFE10`, `e_entry = 0x80`. Le départ des `p_vaddr` à 0 est donc
+démontré, et les quatre régions `executable` en RAM correspondent exactement
+aux segments (data + bss découpés en deux régions rw-).
+
 ### Suite (même jour) : registre et étude de chargement PRX
 
 - **Registre `fiCollection` validé en lecture seule** :

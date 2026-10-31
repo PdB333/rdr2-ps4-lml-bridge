@@ -4,8 +4,10 @@
 Safety contract:
 - PS5 FW must be 13.40, current game must be RDR2 CUSA08519 with
   PS4 base-game metadata 1.00/01.00 and a matching live PID;
-- locate the mapped, readable/executable "executable" image and require
-  every approved RVA to fit its range before contacting process memory;
+- locate the contiguous regions named "executable" (r-x text, r-- RELRO,
+  rw- data/bss); the image base is the start of the first r-x region and
+  every approved RVA must land inside ONE readable image region before
+  contacting process memory;
 - issue ONLY CMD_PROC_READ (0xBDAA0002), at approved small read sizes:
     RTTI type name (21 bytes), vtable boundary header (16 bytes),
     vtable 112 slots (896 bytes), end boundary (8 bytes), and
@@ -17,6 +19,13 @@ Safety contract:
 - hash only the 112 normalized addresses (FNV-1a); does NOT compute
   the SHA-256 of the full in-memory executable, does NOT prove an exact
   byte-for-byte match to the uploaded proprietary EBOOT.
+
+Address model (verified live on PS5 13.40, 31 Oct 2026): the EBOOT is
+ET_SCE_EXEC_ASLR (0xFE10), its PT_LOAD p_vaddr start at 0, so every
+profile "RVA" is relative to the image base. Runtime address =
+image_base + RVA, with image_base = start of the first "executable"
+region (0x00400000 observed). The former code assumed the RVAs were
+already absolute (bias 0), which explains the earlier false mismatch.
 
 Protocol: https://github.com/Pharaoh2k/ps5debug-NG/blob/master/PROTOCOL.md
 cmd_proc_read_packet is packed (pid u32; address u64; length u32).
@@ -36,7 +45,7 @@ from ps5debug_ng_rdr2_maps import inspect_maps
 from ps5debug_ng_rdr2_identity import check_response_ok
 
 CMD_PROC_READ = 0xBDAA0002
-RVA_LINK_EXEC_START = 0x00400000
+MAX_IMAGE_REGIONS = 16
 VTABLE = 0x066B00F8
 VTABLE_SLOTS = 112
 VTABLE_FNV = 0x8EAECB696678DAD0
@@ -73,7 +82,7 @@ def fnv_vtable(table: bytes, image_bias: int) -> int:
     result=0xCBF29CE484222325
     for i in range(VTABLE_SLOTS):
         address=struct.unpack_from("<Q",table,i*8)[0]
-        if not RVA_LINK_EXEC_START <= address-image_bias < VTABLE:
+        if not 0 < address-image_bias < VTABLE:
             # Method entries lie in the analyzed executable's earlier code.
             raise ValueError("Slot virtuel hors segment de code v1.00")
         for byte in (address-image_bias).to_bytes(8,"little"):
@@ -81,41 +90,57 @@ def fnv_vtable(table: bytes, image_bias: int) -> int:
     return result
 
 
-def select_main_executable(maps: dict)->tuple[int,int,int]:
-    selected=[]
-    for item in maps.get("executable_region_samples",[]):
-        if item.get("name") != "executable" or (int(item.get("prot",0))&5)!=5:
+def select_main_image(maps: dict)->tuple[int,tuple[tuple[int,int,int],...]]:
+    """Return (image_base, regions) for the regions named "executable".
+
+    Regions must be contiguous; the first must be r-x. Bias is the start
+    of that first region because the 0xFE10 EBOOT's p_vaddr start at 0.
+    """
+    rows=[]
+    for item in maps.get("main_image_regions",[]):
+        if item.get("name")!="executable":
             continue
         try:
-            start=int(item["start"],16);end=int(item["end"],16)
+            rows.append((int(item["start"],16),int(item["end"],16),
+                         int(item.get("prot",0))))
         except (KeyError,ValueError,TypeError):
-            continue
-        if start>=RVA_LINK_EXEC_START and end>start:
-            bias=start-RVA_LINK_EXEC_START
-            if 0<=bias<2**47 and end>=bias+VTABLE+VTABLE_SLOTS*8+8:
-                selected.append((start,end,bias))
-    if len(selected)!=1:
-        raise ValueError("Segment principal 'executable' absent ou ambigu")
-    start,end,bias=selected[0]
+            raise ValueError("Region 'executable' illisible") from None
+    rows.sort()
+    if not rows or len(rows)>MAX_IMAGE_REGIONS:
+        raise ValueError("Image principale 'executable' absente ou ambigue")
+    for (s0,e0,_),(s1,e1,_) in zip(rows,rows[1:]):
+        if e0!=s1:
+            raise ValueError("Image principale 'executable' non contigue")
+    if any(e<=s for s,e,_ in rows) or (rows[0][2]&5)!=5:
+        raise ValueError("Image principale 'executable' absente ou ambigue")
+    base=rows[0][0]
+    if not 0<base<2**47:
+        raise ValueError("Base de chargement non valide")
+    regions=tuple(rows)
     for rva,size in READ_PLAN:
-        address=bias+rva
-        if not(start<=address and size<=MAX_READ and address+size<=end):
-            raise ValueError("Signature v1.00 hors de la region executable")
-    return start,end,bias
+        region_for(regions,base+rva,size)
+    return base,regions
 
 
-def read_profile_chunk(conn: socket.socket, pid: int, bias: int,
-                       main_start: int, main_end: int,
-                       rva: int, length: int)->bytes:
+def region_for(regions,address:int,size:int)->tuple[int,int,int]:
+    for start,end,prot in regions:
+        if start<=address and address+size<=end:
+            if not prot&1:
+                break
+            return start,end,prot
+    raise ValueError("Signature v1.00 hors de l'image principale lisible")
+
+
+def read_profile_chunk(conn: socket.socket, pid: int, base: int,
+                       regions, rva: int, length: int)->bytes:
     if (rva,length) not in READ_PLAN_SET:
         raise ValueError("Lecture interdite hors des signatures v1.00")
     if not isinstance(pid,int) or pid<=0 or pid>0x7FFFFFFF:
         raise ValueError("PID non valide")
-    if not(0<=bias<2**47):
+    if not(0<base<2**47):
         raise ValueError("Base de chargement non valide")
-    address=bias+rva
-    if not (main_start<=address and address+length<=main_end):
-        raise ValueError("Lecture hors segment executable")
+    address=base+rva
+    region_for(regions,address,length)
     raw=struct.pack("<IQI",pid,address,length)
     conn.sendall(struct.pack("<III",PACKET_MAGIC,CMD_PROC_READ,len(raw))+raw)
     check_response_ok(conn)
@@ -176,7 +201,7 @@ def check_live(ip: str, *, tailscale: bool=False,
     meta=info["map_metadata"]
     if info["game_title_id"]!="CUSA08519" or info["game_version_metadata"] not in ("1.00","01.00"):
         raise ValueError("Titre RDR2 1.00 non identifie : aucune lecture de code")
-    start,end,bias=select_main_executable(meta)
+    bias,regions=select_main_image(meta)
     if tailscale:
         verify_tailscale_route(target)
     pid=info["pid"]
@@ -185,16 +210,16 @@ def check_live(ip: str, *, tailscale: bool=False,
         conn.settimeout(timeout)
         for rva,length in READ_PLAN:
             chunks[(rva,length)]=read_profile_chunk(
-                conn,pid,bias,start,end,rva,length
+                conn,pid,bias,regions,rva,length
             )
     return {
         "firmware":info["firmware"],
         "game_title_id":info["game_title_id"],
         "game_version_metadata":info["game_version_metadata"],
         "pid":pid,
-        "main_executable_region_start":f"0x{start:016x}",
-        "main_executable_region_end":f"0x{end:016x}",
-        "provisional_image_load_bias":f"0x{bias:x}",
+        "image_base":f"0x{bias:x}",
+        "image_regions":[{"start":f"0x{a:016x}","end":f"0x{b:016x}",
+                          "prot":p} for a,b,p in regions],
         "profile":validate_profile(chunks,bias),
         "profile_is_read_only":True,
     }

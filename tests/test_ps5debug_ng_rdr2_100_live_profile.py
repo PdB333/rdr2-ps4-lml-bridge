@@ -16,13 +16,21 @@ import ps5debug_ng_rdr2_100_live_profile as live  # noqa: E402
 
 IP="192.168.1.181"
 PID=8123
+# Layout observed live on PS5 13.40 (CUSA08519 01.00): four contiguous
+# regions named "executable"; ELF p_vaddr start at 0, base = 0x00400000.
 START=0x00400000
-END=0x06814000
-PROFILE_MAP={
-    "executable_region_samples":[{"name":"executable",
-        "start":f"0x{START:016x}","end":f"0x{END:016x}",
-        "offset":"0x0","prot":5}]
-}
+LAYOUT=((0x00400000,0x06814000,5),(0x06814000,0x06B90000,1),
+        (0x06B90000,0x06E20000,3),(0x06E20000,0x08A38000,3))
+
+
+def image_map(base=START,layout=LAYOUT):
+    return {"main_image_regions":[{"name":"executable",
+        "start":f"0x{a-START+base:016x}","end":f"0x{b-START+base:016x}",
+        "offset":"0x0","prot":p} for a,b,p in layout]}
+
+
+PROFILE_MAP=image_map()
+REGIONS=tuple((a,b,p) for a,b,p in LAYOUT)
 GAME={
     "game_title_id":"CUSA08519",
     "game_version_metadata":"01.00",
@@ -43,7 +51,7 @@ def method_rvas() -> list[int]:
     return values
 
 
-def chunks(*,bias=0):
+def chunks(*,bias=START):
     table=b"".join(struct.pack("<Q",bias+v) for v in method_rvas())
     v={
         (live.TYPE_RVA,len(live.TYPE_NAME)):live.TYPE_NAME,
@@ -81,7 +89,7 @@ class FakeReadSocket:
 class TestLiveProfileReadOnly(unittest.TestCase):
     def test_01_native_static_vtable_fnv_consistent(self):
         blob=chunks()
-        status=live.validate_profile(blob,0)
+        status=live.validate_profile(blob,START)
         self.assertTrue(status["live_rage_packfile8_profile_matches_eboot_100"])
         self.assertEqual(status["computed_vtable_fnv64"],"8eaecb696678dad0")
         self.assertTrue(status["five_known_method_slots_match"])
@@ -101,7 +109,7 @@ class TestLiveProfileReadOnly(unittest.TestCase):
                 arr=bytearray(modified[key])
                 arr[min(8,len(arr)-1)]^=1
                 modified[key]=bytes(arr)
-                verdict=live.validate_profile(modified,0)
+                verdict=live.validate_profile(modified,START)
                 self.assertFalse(verdict["live_rage_packfile8_profile_matches_eboot_100"])
 
     def test_03_relocated_image_bias_supported(self):
@@ -109,17 +117,21 @@ class TestLiveProfileReadOnly(unittest.TestCase):
         ch=chunks(bias=bias)
         status=live.validate_profile(ch,bias)
         self.assertTrue(status["live_rage_packfile8_profile_matches_eboot_100"])
-        maps={"executable_region_samples":[{"name":"executable",
-            "start":hex(bias+START),"end":hex(bias+END),"prot":5}]}
-        self.assertEqual(live.select_main_executable(maps),(bias+START,bias+END,bias))
+        base,regions=live.select_main_image(image_map(base=bias))
+        self.assertEqual(base,bias)
+        self.assertEqual(regions[0][0],bias)
 
     def test_04_only_matching_main_executable_segment(self):
-        self.assertEqual(live.select_main_executable(PROFILE_MAP),(START,END,0))
-        with self.assertRaisesRegex(ValueError,"absent ou ambigu"):
-            live.select_main_executable({"executable_region_samples":[]})
-        with self.assertRaisesRegex(ValueError,"absent ou ambigu"):
-            live.select_main_executable({"executable_region_samples":[
-                {**PROFILE_MAP["executable_region_samples"][0],"prot":1}]})
+        self.assertEqual(live.select_main_image(PROFILE_MAP),(START,REGIONS))
+        with self.assertRaisesRegex(ValueError,"absente ou ambigue"):
+            live.select_main_image({"main_image_regions":[]})
+        with self.assertRaisesRegex(ValueError,"absente ou ambigue"):
+            live.select_main_image(image_map(layout=((LAYOUT[0][0],LAYOUT[0][1],1),)+LAYOUT[1:]))
+        with self.assertRaisesRegex(ValueError,"non contigue"):
+            live.select_main_image(image_map(layout=LAYOUT[:1]+LAYOUT[2:]))
+        # Text-only map (the old 5-sample view) cannot hold the RELRO vtable.
+        with self.assertRaisesRegex(ValueError,"hors de l'image"):
+            live.select_main_image(image_map(layout=LAYOUT[:1]))
 
     def test_05_read_plan_rejects_arbitrary_address_and_length(self):
         fake=FakeReadSocket(b"")
@@ -127,19 +139,21 @@ class TestLiveProfileReadOnly(unittest.TestCase):
                          (live.VTABLE,16),(live.VTABLE,902)]:
             with self.subTest(pair=(rva,size)),self.assertRaisesRegex(
                 ValueError,"Lecture interdite"):
-                live.read_profile_chunk(fake,PID,0,START,END,rva,size)
+                live.read_profile_chunk(fake,PID,START,REGIONS,rva,size)
         self.assertEqual(fake.sent,[])
 
     def test_06_pid_and_memory_region_validated_before_request(self):
         fake=FakeReadSocket(b"")
-        for pid,bias,begin,end in [
-            (0,0,START,END),
-            (-1,0,START,END),
-            (PID,1<<48,START,END),
-            (PID,0,START,START+16),
+        for pid,bias,regions in [
+            (0,START,REGIONS),
+            (-1,START,REGIONS),
+            (PID,1<<48,REGIONS),
+            (PID,0,REGIONS),
+            (PID,START,((START,START+16,5),)),
+            (PID,START,((START,0x08A38000,0),)),
         ]:
-            with self.subTest(values=(pid,bias,begin,end)),self.assertRaises(ValueError):
-                live.read_profile_chunk(fake,pid,bias,begin,end,
+            with self.subTest(values=(pid,bias,regions)),self.assertRaises(ValueError):
+                live.read_profile_chunk(fake,pid,bias,regions,
                                         live.TYPE_RVA,len(live.TYPE_NAME))
         self.assertEqual(fake.sent,[])
 
@@ -151,11 +165,11 @@ class TestLiveProfileReadOnly(unittest.TestCase):
         verify.assert_called_once_with(IP,tailscale=False,expected_fw=1340,
                                        timeout=8.0)
         self.assertTrue(report["profile"]["live_rage_packfile8_profile_matches_eboot_100"])
-        self.assertEqual(report["provisional_image_load_bias"],"0x0")
+        self.assertEqual(report["image_base"],"0x400000")
         self.assertEqual(len(fake.sent),8)
         for index,(rva,length) in enumerate(live.READ_PLAN):
             self.assertEqual(fake.sent[index],struct.pack("<III",0xFFAABBCC,
-                        0xBDAA0002,16)+struct.pack("<IQI",PID,rva,length))
+                        0xBDAA0002,16)+struct.pack("<IQI",PID,START+rva,length))
 
     def test_08_wrong_title_or_patch_prevents_memory_access(self):
         for key,value in [("game_title_id","CUSA12345"),
@@ -193,12 +207,12 @@ class TestLiveProfileReadOnly(unittest.TestCase):
 
     def test_12_unverified_image_base_never_inferred_from_eboot_name(self):
         maps={
-            "executable_region_samples":[{"name":"(NoName)eboot.bin",
+            "main_image_regions":[{"name":"(NoName)eboot.bin",
                 "start":"0x00000007eedf8000",
                 "end":"0x00000007eedfc000","prot":0}]
         }
         with self.assertRaises(ValueError):
-            live.select_main_executable(maps)
+            live.select_main_image(maps)
 
     def test_13_cli_returns_nonzero_for_mismatch(self):
         game={**GAME}
@@ -215,11 +229,18 @@ class TestLiveProfileReadOnly(unittest.TestCase):
 
     def test_14_zero_filled_process_reads_explicitly_not_trusted(self):
         zero={key:b"\0"*len(val) for key,val in chunks().items()}
-        status=live.validate_profile(zero,0)
+        status=live.validate_profile(zero,START)
         self.assertTrue(status["possibly_zero_filled_read_failure"])
         self.assertEqual(status["nonzero_game_bytes_returned"],0)
         self.assertFalse(status["live_rage_packfile8_profile_matches_eboot_100"])
         self.assertFalse(status["game_hook_installed"])
+
+    def test_15_regression_absolute_rva_assumption_rejected(self):
+        # Before 31 Oct 2026 the tool read base 0 + RVA. Bytes valid at
+        # base+RVA must NOT validate when interpreted with bias 0.
+        status=live.validate_profile(chunks(bias=START),0)
+        self.assertFalse(status["live_rage_packfile8_profile_matches_eboot_100"])
+        self.assertFalse(status["vtable_header_matches"])
 
 
 if __name__=="__main__":

@@ -1,5 +1,45 @@
 # Reprise par une autre IA — RDR2 PS4 1.00 / PS5 13.40 / LML Bridge
 
+## RÉSOLU (31 octobre 2026, seconde session) : correspondance positive EBOOT ↔ RAM
+
+**Cause du mismatch : erreur de traduction d'adresses dans le comparateur, pas
+un mauvais EBOOT.** L'EBOOT est `ET_SCE_EXEC_ASLR` (`0xFE10`) : ses `PT_LOAD`
+ont des `p_vaddr` qui commencent à 0. Les « RVA » du profil sont donc relatives
+à la base d'image. L'ancien script supposait des adresses déjà absolues liées à
+`0x00400000` (bias = 0) et lisait `0 + RVA` au lieu de `base + RVA`.
+
+Carte réelle (CMD_PROC_MAPS, PID du test) — l'image est découpée en **quatre
+régions contiguës nommées `executable`** ; l'ancien outil n'en voyait qu'une :
+
+| Région | Prot | Contenu |
+|---|---|---|
+| `0x00400000–0x06814000` | r-x | text + rodata (nom RTTI, code) |
+| `0x06814000–0x06B90000` | r-- | RELRO (vtables, typeinfo) |
+| `0x06B90000–0x06E20000` | rw- | data |
+| `0x06E20000–0x08A38000` | rw- | bss (registre candidat `base+0x08053D40`) |
+
+**Formule démontrée : adresse runtime = `image_base` + RVA du profil, avec
+`image_base` = début de la première région r-x `executable` (`0x00400000`
+observé).** Exemple : vtable `fiPackfile8` = `0x06AB00F8` (région RELRO),
+`Open` = `0x0492A480`.
+
+Résultat de `tools/ps5debug_ng_rdr2_100_live_profile.py` corrigé (mêmes 8
+lectures bornées, 1 005 octets, aucune écriture) : **exit 0**, nom RTTI,
+en-tête vtable, borne de fin, 5 slots, empreinte FNV des 112 méthodes
+(`8eaecb696678dad0`) et 4 prologues de code : **tous conformes**.
+Un test préalable de 85 octets (nom RTTI, en-tête, slots 0–3, prologue Open)
+avait donné la même conclusion.
+
+`CMD_PROC_READ` (`<IQI` pid/adresse/longueur, statut puis données brutes) est
+donc validé empiriquement : les octets reçus sont identiques au fichier.
+
+Ce qui reste **non démontré** : SHA-256 de l'image complète en RAM ; stabilité
+de la base `0x00400000` à chaque lancement (le code la relit à chaque fois, sans
+la coder en dur) ; lecture directe des `p_vaddr` du fichier par cette session
+(EBOOT absent de la machine — la cohérence des 112 pointeurs l'implique) ;
+chargement du PRX ; tout hook. **Aucun hook n'est installé.**
+
+
 **Dernière synthèse : 31 octobre 2026.**
 **Dépôt public :** https://github.com/PdB333/rdr2-ps4-lml-bridge
 **Commit de départ confirmé avant ce handoff :** `b2e43930116e3271417918ddac5b0fe1aaef0ec7` (branche `main`).

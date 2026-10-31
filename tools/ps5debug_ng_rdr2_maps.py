@@ -9,7 +9,9 @@ No logs, IPs, memory maps or user data are written to files/Git.
 
 Protocol source: Pharaoh2k/ps5debug-NG PROTOCOL.md, proc.c,
 protocol.h struct proc_vm_map_entry: name[32], start/end/offset u64,
-prot u16, packed 58 bytes. Actual loader base still UNVERIFIED here.
+prot u16, packed 58 bytes. The EBOOT image appears as several contiguous
+regions named "executable" (r-x, r--, rw-); they are all reported in
+main_image_regions. The base is only validated by the live profile tool.
 """
 from __future__ import annotations
 import argparse
@@ -45,6 +47,7 @@ def read_map_summary(conn: socket.socket) -> dict:
     interesting=[]
     candidate_bases=set()
     sample_exec=[]
+    main_image=[]
     for _ in range(count):
         data=recv_exact(conn,MAP_ENTRY_SIZE)
         name=cstring(data[:32])
@@ -67,6 +70,8 @@ def read_map_summary(conn: socket.socket) -> dict:
                 interesting.append(row)
             if ("eboot" in lower or "app0" in lower) and start>=offset:
                 candidate_bases.add(start-offset)
+        if name=="executable" and len(main_image)<16:
+            main_image.append(row)
         if (prot&4) and len(sample_exec)<5:
             sample_exec.append(row)
     return {
@@ -75,6 +80,7 @@ def read_map_summary(conn: socket.socket) -> dict:
         "executable_region_count":executable,
         "named_game_region_matches":interesting,
         "executable_region_samples":sample_exec,
+        "main_image_regions":main_image,
         "candidate_image_bases_unverified":[f"0x{x:016x}" for x in
                                               sorted(candidate_bases)[:12]],
         "any_game_process_bytes_read":False,

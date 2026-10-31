@@ -7,7 +7,15 @@ Ce document ne contient PAS le binaire du jeu.
 Les adresses qui suivent concernent seulement l'EBOOT 1.00 identifié par
 son empreinte SHA-256 ; ne pas les appliquer à un exécutable 1.32.
 
-## Avertissement suite au test de la PS5
+## Mise à jour : profil VALIDÉ en RAM (31 octobre 2026)
+
+Les RVA ci-dessous sont relatives à la base d'image (`p_vaddr` à 0, ELF
+`0xFE10`). Adresse runtime = base + RVA, base observée `0x00400000`. Avec
+cette conversion, tout le profil fiPackfile8 correspond au processus réel.
+Voir `orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md`. L'avertissement ci-dessous
+est historique.
+
+## Avertissement suite au test de la PS5 (historique — cause identifiée : base mal appliquée)
 
 Un test réel du 31 octobre 2026 sur la PS5 FW13.40 a confirmé
 RDR2 PS4 **CUSA08519, APP_VER 01.00**, mais **les signatures ci-dessous

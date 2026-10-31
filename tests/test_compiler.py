@@ -21,16 +21,19 @@ SPEC.loader.exec_module(compiler)
 
 class TestLmlCompiler(unittest.TestCase):
     def test_real_example_catalog(self):
+        # Counts the shipped LML sample mods plus the bridge's own clean-room
+        # demo examples/overlay_hello_100 (one ungrouped .meta FileReplacement,
+        # 436 bytes): +1 mod, +1 entry, +1 file_replacement, +1 xml_metadata.
         catalog = compiler.compile_catalog(MODLOADER, set(), True)
         self.assertEqual(catalog["summary"], {
-            "mods": 5,
-            "entries": 14,
-            "file_replacements": 8,
+            "mods": 6,
+            "entries": 15,
+            "file_replacements": 9,
             "streaming_files": 2,
             "data_files": 4,
-            "payload_bytes": 20164930,
+            "payload_bytes": 20165366,
             "xml_rage_resources": 9,
-            "xml_metadata_files": 3,
+            "xml_metadata_files": 4,
             "text_string_tables": 1,
             "native_rsc8_files": 1,
         })
@@ -48,14 +51,16 @@ class TestLmlCompiler(unittest.TestCase):
                             for e in xml_entries))
 
     def test_group_default_opt_in(self):
+        # 7 shipped ungrouped entries + the overlay_hello_100 demo entry.
         catalog = compiler.compile_catalog(MODLOADER, set(), False)
-        self.assertEqual(catalog["summary"]["entries"], 8)
-        self.assertEqual(catalog["summary"]["file_replacements"], 2)
+        self.assertEqual(catalog["summary"]["entries"], 9)
+        self.assertEqual(catalog["summary"]["file_replacements"], 3)
         self.assertTrue(any("no ResourceGroup selected" in x for x in catalog["warnings"]))
 
     def test_specific_group(self):
+        # Selected-group entries + always-on ungrouped entries (incl. the demo).
         catalog = compiler.compile_catalog(MODLOADER, {"More assertive peds"}, False)
-        self.assertEqual(catalog["summary"]["entries"], 10)
+        self.assertEqual(catalog["summary"]["entries"], 11)
         target = "update:/x64/packs/base/data/metapeds.ymt"
         self.assertEqual(
             len([e for e in catalog["entries"] if e["key"] == target]), 1)

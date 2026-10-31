@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Payload synthetique clean-room (aucun octet du jeu). Sert uniquement a
+     prouver que la chaine overlay produit un overlay.map valide et chargeable.
+     Un vrai effet visible exige une ressource .meta reelle, verifiee 1.00. -->
+<CExampleLmlOverlay>
+  <note>LML overlay pipeline demonstration payload for RDR2 PS4 1.00.</note>
+  <marker>LML_OVERLAY_HELLO_100</marker>
+</CExampleLmlOverlay>

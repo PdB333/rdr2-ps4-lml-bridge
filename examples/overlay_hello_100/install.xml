@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Mod d'EXEMPLE pour la chaine overlay LML (RDR2 PS4 1.00).
+  Demonstration du pipeline install.xml -> overlay.map UNIQUEMENT.
+  Le payload est un fichier texte/XML synthetique, CLEAN-ROOM : aucun octet
+  de ressource du jeu n'est inclus. Le GamePath cible une ressource .meta
+  chargee par le lecteur texte de RAGE (pas un binaire RPF8/RSC8), seule voie
+  de remplacement sure hors-ligne tant que le repack RPF8 n'est pas outille.
+-->
+<EasyInstall>
+  <Name>LML Overlay Hello (exemple 1.00)</Name>
+  <Author>lml_bridge</Author>
+  <Version>1.0.0</Version>
+  <Resources>
+    <Resource name="example_tuning">
+      <FileReplacement>
+        <GamePath>update:/common/data/example_lml_overlay.meta</GamePath>
+        <FilePath>data/example_lml_overlay.meta</FilePath>
+      </FileReplacement>
+    </Resource>
+  </Resources>
+</EasyInstall>

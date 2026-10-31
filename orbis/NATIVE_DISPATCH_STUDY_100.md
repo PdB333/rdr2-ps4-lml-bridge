@@ -63,6 +63,13 @@ Cela simplifie fortement l'étape 7 : on bâtit hors-ligne une carte
 `hash -> handler_rva` (via l'outil, fichier local non commité), puis le PRX
 résout `image_base` à chaud et appelle le handler.
 
+Le cœur d'invocation existe : `runtime/rdr2_100_natives.{h,c}` (marshalling du
+`NativeContext`, résolution `image_base + handler_rva` avec garde de plage,
+appel via un invoker fourni par l'appelant, **refusé tant que
+`abi_verified != 1`**). Une petite table de bring-up embarque les 3 natives
+vérifiées ci-dessus ; la carte complète reste dans le fichier local généré par
+`inspect_rage_natives.py`. Harnais : `runtime/rdr2_100_natives_harness.c`.
+
 ### Non vérifié (à régler au premier essai console, pas ici)
 
 - **Convention d'appel / ABI du `NativeContext`** : disposition des arguments

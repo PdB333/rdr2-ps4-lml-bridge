@@ -171,9 +171,17 @@ maillons **non prouvés**, dont chacun exige le jeu lancé :
 3. **Accepter le fake-SELF** sous Kstuff Lite pour un process PS4. — non testé.
 4. **Installer le détour `fiPackfile8`** 1.00 : le module actuel
    (`runtime/rage_vfs_redirect`) a tout le corps read-through mais
-   `lml_rage_game_hook_installed()` renvoie 0 — **le détour n'existe pas**.
-   Slots vtable 1.00 connus (Open `0x0452A480`, Read `0x0452B9D0`, etc.).
-   — à écrire et vérifier.
+   `lml_rage_game_hook_installed()` renvoie 0 — le détour n'est pas encore
+   armé. — **outillé** : `runtime/rdr2_100_detour.{h,c}` planifie le swap des
+   slots vtable `fiPackfile8` (Open slot 2 = `0x0452A480`, Read slot 13 =
+   `0x0452B9D0`), fail-closed sur `lml_eboot_verify_profile` et sur le contrôle
+   que le slot contient toujours l'original vérifié (sinon `SITE_MISMATCH`,
+   aucun patch deviné). `apply/revert` refusent tant que le plan n'est pas
+   vérifié. Reste à armer sur console avec un writer gérant la RELRO.
+   Note : l'invocation de natives côté script est également outillée
+   (`runtime/rdr2_100_natives.{h,c}` : résolution statique
+   `image_base + handler_rva`, appel via invoker fourni, refusé tant que
+   `abi_verified != 1`).
 5. **Fichier moddé** produisant un effet visible (remplacement d'une ressource
    RAGE via `overlay.map`). — à préparer.
 

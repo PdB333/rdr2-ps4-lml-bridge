@@ -39,6 +39,16 @@ la coder en dur) ; lecture directe des `p_vaddr` du fichier par cette session
 (EBOOT absent de la machine — la cohérence des 112 pointeurs l'implique) ;
 chargement du PRX ; tout hook. **Aucun hook n'est installé.**
 
+### Suite (même jour) : registre et étude de chargement PRX
+
+- **Registre `fiCollection` validé en lecture seule** :
+  `tools/ps5debug_ng_rdr2_100_registry_probe.py` (exit 0) — 63 `fiPackfile8`
+  bien indexés sur 64 objets ; slot 0 = `rage::pgRawStreamer`.
+- Étude du chargement du PRX : `orbis/PRX_LOADING_STUDY_100.md`. Bloquant
+  principal : l'adresse de `sceKernelLoadStartModule` doit être tirée de la
+  table d'imports de l'EBOOT privé (absent de ce PC), puis lue en RAM.
+  Aucune écriture effectuée.
+
 
 **Dernière synthèse : 31 octobre 2026.**
 **Dépôt public :** https://github.com/PdB333/rdr2-ps4-lml-bridge

@@ -15,6 +15,12 @@ The exported lml_rage_game_hook_installed() currently returns 0.
 
 Do not report simulated success as a successful in-game hook.
 
+**First read `HANDOFF_NEXT_AI.md` (updated 31 October 2026).** It is the
+current, consolidated handoff including the user's decisive confirmation
+that the privately supplied EBOOT came from exactly the same running
+CUSA08519/01.00 installation. Older hypotheses in other documents that
+it was a different region/build must not be treated as established fact.
+
 ## Actual console configuration and networking
 
 User confirmed: **Y2JB 13.40 + Kstuff Lite + ShadowMountPlus** and a
@@ -45,9 +51,11 @@ All signatures **MISMATCHED**: RTTI type name, vtable header,
 112-slot normalized FNV, five methods and four code prefixes.
 The process reads returned real nonzero bytes, not all-zero buffers.
 Do NOT use old `0x066B00F8` vtable or `0x0452A480` Open on the live
-game, do NOT install any hook. The user's uploaded 1.00 EBOOT may be
-a different region/build; current CUSA08519 EBOOT exact bytes/sha
-are NOT established. No game RAM writes, no injects, no hooks.
+game, do NOT install any hook. **The owner subsequently confirmed the
+original uploaded EBOOT is EXACTLY from this running CUSA08519/01.00
+installation**. The ELF-to-runtime virtual address translation or the
+read path must be investigated first; a matching full executable hash
+has NOT yet been produced. No game RAM writes, injects or hooks.
 
 Read `orbis/PS5DEBUG_NG_RDR2_100_LIVE_STATUS.md` before ANY work on
 RAGE addresses or game-memory access. Separate host tests (117)
@@ -129,7 +137,7 @@ Build the native RAGE VFS host test harness:
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 
-The Windows project currently passes 74 offline tests (including the EBOOT fingerprint guard). A fresh
+The Windows project currently passes 117 offline tests (including live PS5 protocol simulations and the EBOOT fingerprint guard). A fresh
 clone needs the locally installed SDK and generated host test executables
 for full test coverage; missing build outputs can cause skips or errors.
 
@@ -138,7 +146,10 @@ for full test coverage; missing build outputs can cause skips or errors.
 1. A user-supplied **RDR2 PS4 1.00** ELF was inspected privately (121670745 bytes,
    SHA-256 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff).
    The ELF itself must never be uploaded. The user explicitly confirmed it is
-   version 1.00, NOT 1.32. The Title ID of that UPLOADED EBOOT remains unknown; the LIVE console game CUSA is CUSA08519. See orbis/EBOOT_RAGE_VFS_PROFILE.md and
+   version 1.00, NOT 1.32. The user explicitly confirmed the uploaded file
+   came from the same currently launched CUSA08519/01.00 installation.
+   Still independently verify the ELF-to-memory address mapping, NOT an
+   assumed different build. See HANDOFF_NEXT_AI.md, orbis/EBOOT_RAGE_VFS_PROFILE.md and
    tools/inspect_rdr2_eboot.py for reproducible static evidence.
 2. The **1.00** upload contains fiPackfile8 RTTI/vtable RVA 0x066B00F8
    and candidate Open at 0x0452A480. runtime/rage_eboot_profile.c now requires

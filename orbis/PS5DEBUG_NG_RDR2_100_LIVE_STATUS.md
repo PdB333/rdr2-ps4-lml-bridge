@@ -16,12 +16,23 @@ Le propriétaire a confirmé la configuration actuelle :
 Sources indépendantes confirmant CUSA08519 comme RDR2 PS4 Europe :
 https://serialstation.com/titles/CUSA/08519
 
+**Mise à jour du 31 octobre 2026 — nouvelle confirmation
+explicite du propriétaire : le fichier EBOOT privé analysé provient
+exactement de CETTE installation CUSA08519/01.00.** Ne pas présumer
+qu'il a envoyé le jeu d'une autre région, d'une autre mise à jour
+ou d'une autre édition. Le contrôle des octets du processus
+continue d'échouer, ce qui pointe désormais en priorité vers
+un problème non résolu de traduction des adresses virtuelles ELF
+vers la mémoire chargée, de segmentation/relocation ou de lecture
+du processus. Ces causes sont des hypothèses, pas des preuves.
+
 Le profil EBOOT précédemment fourni (SHA-256
 e3ae087f833b0f30f462bb7f880dd2955bf9f51dbb6e56706ee9bda81581feff)
-est une **analyse statique d'un autre fichier local** déclaré version
-1.00 par l'utilisateur. Le SHA-256 du véritable processus n'a pas
-été établi et la correspondance entre les deux exécutables **n'est
-pas confirmée**.
+repose sur une **analyse statique de ce fichier personnel**.
+Sa provenance du jeu lancé est affirmée par son propriétaire ;
+le SHA-256 de l'image exécutable complète en mémoire n'a pas été
+établi, et **le calcul d'adresses du comparateur live reste à auditer**.
+Lire en priorité `HANDOFF_NEXT_AI.md` avant d'inférer des RVA.
 
 ## Ce qui a été effectué en lecture seule
 
@@ -63,9 +74,10 @@ préflight a correctement refusé la signature. Aucun module PRX n'a
 été installé dans RDR2 et aucun des hooks n'est actif.
 
 Cela ne prouve pas que le jeu tourne en version 1.32 : les
-métadonnées indiquent **01.00**. L'une des explications possibles est
-une différence d'édition/région/construction de l'EBOOT ; d'autres
-écarts dans le chargement/placement des sections sont possibles.
+métadonnées indiquent **01.00**. Le propriétaire ayant confirmé que le fichier EBOOT provient
+exactement du jeu lancé, **rechercher d'abord une erreur de base,
+d'offset, de traduction des segments ELF vers la RAM ou du chemin de
+lecture en mémoire**, sans supposer une autre édition.
 On ne doit PAS inventer une nouvelle base ou appliquer de correction
 d'adresses par simple soustraction.
 

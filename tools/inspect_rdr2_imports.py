@@ -47,7 +47,9 @@ def nid(name: str) -> str:
     return base64.b64encode(digest, b"+-").decode()[:11]
 
 
-def _segments(raw: bytes) -> dict[int, tuple[int, int, int, int]]:
+def _segments(raw: bytes):
+    """Return (by_type, all_segments). by_type keeps the first of each type;
+    all_segments is every (typ, flags, off, va, fsz, msz) for RVA mapping."""
     header = struct.Struct("<16sHHIQQQIHHHHHH")
     fields = header.unpack_from(raw)
     if fields[0][:4] != b"\x7fELF" or fields[1] != 0xFE10:
@@ -55,13 +57,45 @@ def _segments(raw: bytes) -> dict[int, tuple[int, int, int, int]]:
     phoff, phnum = fields[5], fields[10]
     program = struct.Struct("<IIQQQQQQ")
     out: dict[int, tuple[int, int, int, int]] = {}
+    allsegs: list[tuple[int, int, int, int, int, int]] = []
     for i in range(phnum):
         typ, fl, off, va, pa, fsz, msz, al = program.unpack_from(
             raw, phoff + i * program.size)
         out.setdefault(typ, (off, va, fsz, msz))
+        allsegs.append((typ, fl, off, va, fsz, msz))
     if PT_LOAD not in out or PT_SCE_DYNLIBDATA not in out or PT_DYNAMIC not in out:
         raise ValueError("Missing LOAD / DYNAMIC / DYNLIBDATA segment")
-    return out
+    return out, allsegs
+
+
+def _rva_to_off(allsegs, rva: int):
+    """File offset for a virtual RVA, or None if it lands in a bss tail."""
+    for _typ, _fl, off, va, fsz, _msz in allsegs:
+        if fsz and va <= rva < va + fsz:
+            return off + (rva - va)
+    return None
+
+
+def _is_exec_rva(allsegs, rva: int) -> bool:
+    for _typ, fl, _off, va, _fsz, msz in allsegs:
+        if msz and va <= rva < va + msz and fl & 1:
+            return True
+    return False
+
+
+def _got_file_state(raw: bytes, allsegs, got_rva: int) -> dict:
+    """Classify the GOT slot's value as stored in the file (pre-load)."""
+    off = _rva_to_off(allsegs, got_rva)
+    if off is None:
+        return {"file_value": None, "kind": "bss-no-file"}
+    value = struct.unpack_from("<Q", raw, off)[0]
+    if value == 0:
+        kind = "zero"
+    elif _is_exec_rva(allsegs, value):
+        kind = "lazy-plt-stub"  # points at PLT entry+6 (push index; jmp PLT0)
+    else:
+        kind = "non-exec"
+    return {"file_value": f"0x{value:012X}", "kind": kind}
 
 
 def _dynamic(raw: bytes, dyn_off: int, dyn_sz: int) -> dict[int, int]:
@@ -77,7 +111,7 @@ def _cstr(raw: bytes, off: int) -> str:
 
 
 def analyze(raw: bytes) -> dict:
-    segs = _segments(raw)
+    segs, allsegs = _segments(raw)
     dld = segs[PT_SCE_DYNLIBDATA][0]
     dyn_off, _, dyn_sz, _ = segs[PT_DYNAMIC]
     tags = _dynamic(raw, dyn_off, dyn_sz)
@@ -99,20 +133,26 @@ def analyze(raw: bytes) -> dict:
     report = {}
     for func in WATCH:
         key = nid(func)
-        report[func] = {
+        entry = {
             "nid": key,
             "imported": key in imported,
             "got_rva": f"0x{got[key]:08X}" if key in got else None,
         }
+        if key in got:
+            entry.update(_got_file_state(raw, allsegs, got[key]))
+        report[func] = entry
     return {
-        "schema": "rdr2-orbis-imports-readonly/1",
+        "schema": "rdr2-orbis-imports-readonly/2",
         "jmprel_import_count": jmp_sz // 24,
         "symbol_count": len(names),
         "pltgot_rva": f"0x{need.get('PLTGOT', 0):08X}",
         "watched_imports": report,
-        "note": ("GOT slots are populated by the loader at runtime; a zero "
-                 "value in RAM means the import is not resolved via a "
-                 "readable data GOT (Orbis may patch PLT stubs instead)."),
+        "note": ("In the file each import GOT slot holds PLT+6 (kind "
+                 "'lazy-plt-stub'); the GOT lives in PT_SCE_RELRO (r--), which "
+                 "implies BIND_NOW. At runtime the slot at image_base+got_rva "
+                 "is therefore expected to hold the resolved function address "
+                 "in a system module -- read it there to harvest a live "
+                 "pointer."),
     }
 
 

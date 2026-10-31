@@ -17,13 +17,22 @@ KNOWN_NIDS = {
 }
 
 
-def build_orbis_elf(imports: dict[str, int]) -> bytes:
+# Synthetic image geometry: an r-x "text" (PLT lives here) and a file-backed
+# r-- "relro" holding the GOT, matching the game's real layout shape.
+TEXT_VA, TEXT_OFF, TEXT_FSZ, TEXT_MSZ = 0x400000, 0x4000, 0x200, 0x200000
+PLT_STUB = 0x500000  # an address inside text; GOT slots point here pre-load
+RELRO_VA, RELRO_OFF, RELRO_FSZ = 0x678C000, 0x5000, 0x2000
+FILE_SIZE = RELRO_OFF + RELRO_FSZ
+
+
+def build_orbis_elf(imports: dict[str, int], got_value: int = PLT_STUB) -> bytes:
     """A minimal ET_SCE_EXEC_ASLR image exposing STRTAB/SYMTAB/JMPREL.
 
-    imports maps a plain function name to the GOT (r_offset) RVA it should
-    appear at; names are stored as "<nid>#lib#mod" exactly like the game.
+    imports maps a plain function name to the GOT (r_offset) RVA, which must
+    fall inside the relro segment; names are stored as "<nid>#lib#mod" exactly
+    like the game. Each GOT slot is filled with got_value (default: a text
+    address, i.e. a lazy PLT stub pointer).
     """
-    # dynlibdata internal layout (relative offsets).
     strtab = bytearray(b"\0")
     name_off: dict[str, int] = {}
     for func in imports:
@@ -54,22 +63,28 @@ def build_orbis_elf(imports: dict[str, int]) -> bytes:
         (0, 0),  # DT_NULL
     ])
 
-    dyn_off, dld_off = 256, 512
+    dyn_off, dld_off = 512, 0x1000
     phoff, phentsize = 64, 56
-    phdrs = b"".join(struct.pack("<IIQQQQQQ", typ, fl, off, va, 0, sz, sz, 0x4000)
-                     for typ, fl, off, va, sz in [
-        (imp.PT_LOAD, 5, 0, 0, 0x100),
-        (imp.PT_DYNAMIC, 6, dyn_off, 0, len(dynamic)),
-        (imp.PT_SCE_DYNLIBDATA, 4, dld_off, 0, len(dynlib)),
-    ])
+    # (typ, flags, off, va, fsz, msz)
+    phspec = [
+        (imp.PT_LOAD, 5, TEXT_OFF, TEXT_VA, TEXT_FSZ, TEXT_MSZ),
+        (0x61000010, 4, RELRO_OFF, RELRO_VA, RELRO_FSZ, RELRO_FSZ),
+        (imp.PT_DYNAMIC, 6, dyn_off, 0, len(dynamic), len(dynamic)),
+        (imp.PT_SCE_DYNLIBDATA, 4, dld_off, 0, len(dynlib), 0),
+    ]
+    phdrs = b"".join(struct.pack("<IIQQQQQQ", typ, fl, off, va, 0, fsz, msz,
+                                 0x4000) for typ, fl, off, va, fsz, msz in phspec)
     header = struct.pack("<16sHHIQQQIHHHHHH",
                          b"\x7fELF\x02\x01\x01\x09" + b"\0" * 8, 0xFE10, 62,
-                         1, 0, phoff, 0, 0, 64, phentsize, 3, 0, 0, 0)
-    blob = bytearray(dld_off + len(dynlib))
+                         1, 0, phoff, 0, 0, 64, phentsize, len(phspec), 0, 0, 0)
+    blob = bytearray(FILE_SIZE)
     blob[0:len(header)] = header
     blob[phoff:phoff + len(phdrs)] = phdrs
     blob[dyn_off:dyn_off + len(dynamic)] = dynamic
     blob[dld_off:dld_off + len(dynlib)] = dynlib
+    for got in imports.values():
+        slot = RELRO_OFF + (got - RELRO_VA)
+        struct.pack_into("<Q", blob, slot, got_value)
     return bytes(blob)
 
 
@@ -94,11 +109,23 @@ class TestAnalyze(unittest.TestCase):
                         ["imported"])
         self.assertEqual(out["pltgot_rva"], "0x0678CC50")
 
+    def test_got_slot_in_file_is_lazy_plt_stub(self):
+        out = imp.analyze(self.blob)
+        entry = out["watched_imports"]["sceSysmoduleLoadModule"]
+        self.assertEqual(entry["kind"], "lazy-plt-stub")
+        self.assertEqual(entry["file_value"], f"0x{PLT_STUB:012X}")
+
+    def test_zeroed_got_slot_classified_zero(self):
+        blob = build_orbis_elf(self.imports, got_value=0)
+        entry = imp.analyze(blob)["watched_imports"]["malloc"]
+        self.assertEqual(entry["kind"], "zero")
+
     def test_absent_loader_symbol_reported_false(self):
         out = imp.analyze(self.blob)
         entry = out["watched_imports"]["sceKernelLoadStartModule"]
         self.assertFalse(entry["imported"])
         self.assertIsNone(entry["got_rva"])
+        self.assertNotIn("kind", entry)
         self.assertEqual(entry["nid"], "wzvqT4UqKX8")
 
     def test_rejects_non_orbis_elf(self):

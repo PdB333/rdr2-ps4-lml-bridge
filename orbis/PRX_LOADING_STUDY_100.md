@@ -59,24 +59,52 @@ Conséquence directe : la méthode « CALL sur une entrée GOT de
 ce symbole. `sceSysmoduleLoadModule` est importé mais ne charge que des
 modules système par identifiant, pas un PRX arbitraire par chemin.
 
-## GOT lue à zéro en RAM (constat ouvert)
+## Mécanisme d'import vérifié dans le FICHIER (PLT paresseux + RELRO)
 
-Lecture seule des RVA GOT ci-dessus en RAM (`base + 0x0678Cxxx`,
-région RELRO r-- `0x06814000`–`0x06B90000`) : **toutes à zéro**, alors que la
-vtable fiPackfile8 (`base + 0x066B00F8`, même région) est correctement
-peuplée. Donc les pointeurs de fonctions importées **ne sont pas lisibles
-dans un GOT data** à ces adresses. Deux explications candidates, non
-tranchées (aucune écriture faite) :
+Analyse directe de `eboot.bin` (sans console) via `inspect_rdr2_imports.py`
+(champs `file_value`/`kind`). Programme headers réels :
 
-1. le chargeur Orbis sous ce jailbreak patche directement les stubs PLT
-   (région r-x) plutôt que de remplir un GOT data ;
-2. ces slots relèvent d'une liaison paresseuse non encore déclenchée.
+- `PT_LOAD` r-x : off `0x4000`, va `0x0`, taille `0x06413B30`.
+- `PT_SCE_RELRO` (`0x61000010`) r-- : off `0x6418000`, va `0x06414000`,
+  fsz `0x37A130`, msz `0x37C000` → contient le GOT.
+- `PT_LOAD` rw- : va `0x06790000`. `DT_SCE_PLTGOT` RVA `0x0678CC50`.
 
-Conséquence : l'adresse d'une fonction `libkernel`/`libc` pour un
-`CMD_PROC_CALL` **ne peut pas** être moissonnée depuis le GOT du jeu. Voies à
-étudier : (a) résoudre depuis la base du module `libkernel.sprx` mappé dans le
-processus (vu en maps vers `0x800000000`) via sa propre table d'exports, si
-ps5debug-NG expose l'info module ; (b) utiliser `CMD_PROC_ELF_RPC`
+Chaque slot GOT d'import contient **dans le fichier** un pointeur vers
+`PLT+6` (`kind = lazy-plt-stub`), pas zéro. Exemple
+`sceSysmoduleLoadModule` : GOT `0x0678CEB8` → `0x05A73626`, stub PLT à
+`0x05A73620` :
+
+```
+ff 25 92 98 d1 00   jmp qword [rip+0xd19892]  ; cible = 0x0678CEB8 (le slot)
+68 4a 00 00 00      push 0x4a                  ; index de relocation
+e9 40 fb ff ff      jmp PLT0
+```
+
+C'est une liaison paresseuse x86-64 standard. **Mais** le GOT est dans un
+segment `PT_SCE_RELRO` (r--) : après relocation, le chargeur le passe en
+lecture seule, ce qui **force une liaison immédiate (BIND_NOW)**. Donc à
+l'exécution, `image_base + got_rva` doit contenir l'adresse résolue de la
+fonction dans le module système.
+
+## GOT lue à zéro en RAM : à re-vérifier (non bloquant)
+
+Une seule lecture live antérieure avait renvoyé zéro à ces RVA. Le fichier
+montre qu'elles ne sont **pas** zéro et que le GOT est bien l'emplacement de
+liaison. Ce « zéro » est donc **suspect** (mauvaise adresse lue, page non
+lue, ou état du jeu) et **non** une preuve que la voie est impossible —
+à re-tester quand le jeu tourne, avec la recette exacte ci-dessous. La vtable
+fiPackfile8 (`base + 0x066B00F8`, même segment RELRO) étant correctement lue,
+le segment est lisible.
+
+**Recette de re-test (lecture seule, jeu lancé) :** lire 8 octets à
+`image_base + 0x0678CEB8`. Attendu : un pointeur dans la région r-x d'un
+module système (pas `0x05A73626`, qui serait la valeur fichier non liée).
+De ce pointeur résolu, déduire la base du module conteneur, puis parcourir sa
+table d'exports pour trouver `sceKernelLoadStartModule`.
+
+Voies de chargement (inchangées, à départager après le re-test) :
+(a) résoudre depuis la base du module `libkernel.sprx` (vu en maps vers
+`0x800000000`) via sa table d'exports ; (b) `CMD_PROC_ELF_RPC`
 (`0xBDAA0010`) avec un stub autonome.
 
 ## Bloquants restants

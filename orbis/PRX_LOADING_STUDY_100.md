@@ -20,13 +20,30 @@ cette étude : uniquement CMD_PROC_MAPS et des CMD_PROC_READ bornés.
   PS4 dont `libkernel.sprx` vers `0x800000000`, `libSceLibcInternal.sprx`,
   `libSceSysmodule.sprx`, etc. Ce sont des adresses de CE lancement.
 
-## Primitives ps5debug-NG disponibles (PROTOCOL.md amont)
+## Primitives ps5debug-NG disponibles (formats vérifiés dans le source)
 
-Pas de commande « charger un PRX ». Primitives utiles :
-`CMD_PROC_ALLOC 0xBDAA000B`, `CMD_PROC_WRITE 0xBDAA0003`,
-`CMD_PROC_CALL 0xBDAA0006` (rip + 6 arguments, renvoie rax),
-`CMD_PROC_ELF_RPC 0xBDAA0010`, `CMD_PROC_PROTECT 0xBDAA0008`.
-`CMD_PROC_INTALL` est un stub (renvoie 0).
+Pas de commande « charger un PRX ». Trames vérifiées (PROTOCOL.md + `proc.c`,
+corps après l'en-tête 12 o `magic/cmd/datalen`, little-endian, `CMD_SUCCESS`
+= `0x80000000`, `CMD_ERROR` = `0xF0000001`) :
+
+- `CMD_PROC_ALLOC 0xBDAA000B` — req `{u32 pid; u32 length}` → `{u64 address}`.
+- `CMD_PROC_FREE 0xBDAA000C` — req `{u32 pid; u64 address; u32 length}`.
+- `CMD_PROC_WRITE 0xBDAA0003` — req `{u32 pid; u64 address; u32 length}`,
+  puis `OK`, puis `length` octets bruts, puis `OK` final.
+- `CMD_PROC_CALL 0xBDAA0006` — req 68 o `{u32 pid; u64 rpcstub; u64 rip;
+  u64 rdi; u64 rsi; u64 rdx; u64 rcx; u64 r8; u64 r9}` → `{u32 pid; u64 rax}`.
+- `CMD_PROC_ELF_RPC 0xBDAA0010` — req `{u32 pid; u32 length}` + ELF brut ;
+  charge **et exécute** l'ELF (renvoie `entry`). Pas de `rpcstub` requis.
+
+**Point dur, vérifié dans `proc.c`** : `CMD_PROC_INTALL` (0xBDAA0005) est un
+**no-op** (`resp_rpcstub = 0`, aucune injection). `CMD_PROC_CALL` transmet
+`rpcstub` tel quel au noyau (`sys_proc_cmd SYS_PROC_CALL`). Donc **savoir si
+`CALL` fonctionne avec `rpcstub=0` dépend du plugin noyau** — invérifiable
+hors console. Si `CALL` échoue en live, repli sur `CMD_PROC_ELF_RPC`.
+
+L'instrument `tools/ps5debug_ng_rdr2_100_inject.py` implémente ALLOC/WRITE/
+CALL avec ces formats, **dry-run par défaut**, barrière de profil, refus de
+deviner l'adresse (`--loader-addr` obligatoire), `--arm` pour exécuter.
 
 Méthode initialement envisagée — `CMD_PROC_CALL(sceKernelLoadStartModule,
 chemin, …)` — **écartée** : voir la table d'imports ci-dessous, le jeu
@@ -96,11 +113,14 @@ lue, ou état du jeu) et **non** une preuve que la voie est impossible —
 fiPackfile8 (`base + 0x066B00F8`, même segment RELRO) étant correctement lue,
 le segment est lisible.
 
-**Recette de re-test (lecture seule, jeu lancé) :** lire 8 octets à
-`image_base + 0x0678CEB8`. Attendu : un pointeur dans la région r-x d'un
-module système (pas `0x05A73626`, qui serait la valeur fichier non liée).
-De ce pointeur résolu, déduire la base du module conteneur, puis parcourir sa
-table d'exports pour trouver `sceKernelLoadStartModule`.
+**Recette de re-test (lecture seule, jeu lancé) :** `sceKernelLoadStartModule`
+vit dans `libkernel`. Comme le jeu importe `sceKernelOpen` (libkernel), lire
+8 octets à `image_base + 0x0678CDA0`. Attendu : un pointeur dans la région
+r-x de `libkernel` (pas `0x05A733F6`, la valeur fichier non liée). Croiser ce
+pointeur avec `CMD_PROC_MAPS` pour obtenir la base de `libkernel`, puis
+parcourir sa table d'exports (NID `wzvqT4UqKX8`) pour résoudre l'adresse de
+`sceKernelLoadStartModule`. Cette adresse alimente `--loader-addr` de
+l'instrument d'injection.
 
 Voies de chargement (inchangées, à départager après le re-test) :
 (a) résoudre depuis la base du module `libkernel.sprx` (vu en maps vers
@@ -124,6 +144,30 @@ Voies de chargement (inchangées, à départager après le re-test) :
    Histoire hors ligne, sauvegarde faite, en acceptant un possible plantage
    du jeu (sans effet sur la console ou les sauvegardes existantes).
 
+## Feuille de route honnête vers un mod VISIBLE en jeu
+
+Un mod qu'on voit dans RDR2 est le sommet du projet ; il reste plusieurs
+maillons **non prouvés**, dont chacun exige le jeu lancé :
+
+1. **Résoudre `--loader-addr`** (recette ci-dessus, lecture seule). — outillage
+   à écrire.
+2. **Faire tourner notre code** : `inject.py --arm` (CALL), ou repli
+   `CMD_PROC_ELF_RPC`. Preuve réelle = trace `[LML-RAGE-VFS] MODULE_ENTRY` et
+   un handle renvoyé. — non testé sur console.
+3. **Accepter le fake-SELF** sous Kstuff Lite pour un process PS4. — non testé.
+4. **Installer le détour `fiPackfile8`** 1.00 : le module actuel
+   (`runtime/rage_vfs_redirect`) a tout le corps read-through mais
+   `lml_rage_game_hook_installed()` renvoie 0 — **le détour n'existe pas**.
+   Slots vtable 1.00 connus (Open `0x0452A480`, Read `0x0452B9D0`, etc.).
+   — à écrire et vérifier.
+5. **Fichier moddé** produisant un effet visible (remplacement d'une ressource
+   RAGE via `overlay.map`). — à préparer.
+
+Aucun de ces maillons ne peut être validé tant que le jeu ne tourne pas. Le
+premier résultat réel atteignable est l'étape 2 (notre module qui s'exécute),
+pas encore un changement visible.
+
 ## Ce qui n'est PAS fait
 
-Aucun ALLOC, WRITE, CALL, ELF ou attach. Aucun PRX chargé. Aucun hook.
+Aucun ALLOC, WRITE, CALL, ELF ou attach **exécuté**. Aucun PRX chargé. Aucun
+détour installé. L'instrument d'injection existe mais n'a jamais été armé.

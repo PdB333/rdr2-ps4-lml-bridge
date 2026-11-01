@@ -66,6 +66,24 @@ lecture seule). Si une console future rejette l'écriture, une étape de
 changement de protection **vérifiée** devra être ajoutée — aucun opcode de
 protection n'est deviné dans ce dépôt aujourd'hui.
 
+## ABI des handlers Open/Read (hypothèse statique)
+
+Avant d'écrire un trampoline il faut connaître la convention d'appel exacte des
+deux méthodes — la deviner planterait le jeu. `tools/inspect_rage_packfile_abi.py`
+désassemble statiquement les deux handlers depuis l'EBOOT (read-only, gaté SHA,
+listing complet en fichier local non commité) et infère les registres
+d'arguments lus avant d'être écrits :
+
+| Handler            | RVA          | Args entrants             | Prologue        |
+|--------------------|--------------|---------------------------|-----------------|
+| `Open` (slot 2)    | `0x0452A480` | `rdi, rsi, rdx` (3)       | `push rbp`, 24o |
+| `Read` (slot 13)   | `0x0452B9D0` | `rdi, rsi, rdx, rcx, r8` (5) | `push rbp`   |
+
+Lecture SysV : `Open(this, const char* path, int64 read_only)` et
+`Read(this, handle, buffer, size, +1)`. **Hypothèse STATIQUE** — à confirmer
+live avant d'armer. Test : `tests/test_inspect_rage_packfile_abi.py` (ELF
+synthétique, stubs encodés à la main ; aucun octet du jeu).
+
 ## Ce qui reste (console)
 
 - **Charger un PRX** fournissant les deux trampolines (handlers Open/Read qui

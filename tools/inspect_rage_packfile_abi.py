@@ -38,6 +38,9 @@ except ImportError:  # pragma: no cover - environment dependent
 
 # fiPackfile8 vtable handler RVAs, confirmed live (five_known_method_slots).
 TARGETS = {"open_slot2": 0x0452A480, "read_slot13": 0x0452B9D0}
+# fiPackfile8 class vtable, confirmed live (ps5debug_ng_rdr2_100_live_profile).
+VTABLE_RVA = 0x066B00F8
+VTABLE_SLOTS = 112
 ARG_ORDER = ("rdi", "rsi", "rdx", "rcx", "r8", "r9")
 SUBREG = {  # normalize sub-registers to their 64-bit arg register
     "edi": "rdi", "di": "rdi", "dil": "rdi",
@@ -120,7 +123,48 @@ def analyse_one(image: Image, rva: int, max_insns: int) -> tuple[dict, list[str]
     return summary, listing
 
 
-def analyse(path: Path, expected_sha: str, max_insns: int) -> tuple[dict, dict]:
+# Signature shape -> fiDevice role hint. 2 args (this, handle) is shared by
+# Close and GetSize, so those stay candidates, never an assertion.
+def _role_hint(arg_count: int) -> str:
+    return {
+        2: "close/size candidate (this, handle)",
+        3: "open-like (this, path, flag)",
+        4: "seek candidate (this, handle, offset, whence)",
+        5: "read-like (this, handle, buffer, size, +1)",
+    }.get(arg_count, "unknown/nullary")
+
+
+def sweep_vtable(image: Image, max_insns: int) -> tuple[list[dict], dict, dict]:
+    """Decode every fiPackfile8 vtable slot's argument shape (read-only).
+
+    Returns (per-slot summaries, lifecycle-candidate hints). Only argument
+    shapes are inferred; which slot is semantically Close vs GetSize cannot be
+    settled by register use alone, so both remain candidates to confirm live.
+    """
+    slots: list[dict] = []
+    listings: dict[str, list[str]] = {}
+    for idx in range(VTABLE_SLOTS):
+        method = image.qword(VTABLE_RVA + 8 * idx)
+        if not image.is_executable(method):
+            slots.append({"slot": idx, "rva": f"0x{method:08X}",
+                          "executable": False})
+            continue
+        summary, listing = analyse_one(image, method, max_insns)
+        summary["slot"] = idx
+        summary["role_hint"] = _role_hint(summary["contiguous_arg_count"])
+        slots.append(summary)
+        listings[f"slot_{idx:03d}"] = listing
+    candidates = {
+        "seek": [s["slot"] for s in slots
+                 if s.get("contiguous_arg_count") == 4],
+        "close_or_size": [s["slot"] for s in slots
+                          if s.get("contiguous_arg_count") == 2],
+    }
+    return slots, listings, candidates
+
+
+def analyse(path: Path, expected_sha: str, max_insns: int,
+            sweep: bool = False) -> tuple[dict, dict]:
     import hashlib
     sha = hashlib.sha256()
     with path.open("rb") as f:
@@ -138,13 +182,19 @@ def analyse(path: Path, expected_sha: str, max_insns: int) -> tuple[dict, dict]:
             if not image.is_executable(rva):
                 raise ValueError(f"{name} RVA non executable : profil invalide")
             summaries[name], listings[name] = analyse_one(image, rva, max_insns)
-    report = {
-        "schema": "rdr2-rage-packfile-abi-readonly/1",
-        "sha256": sha.hexdigest(),
-        "note": ("Hypothese STATIQUE de l'ABI. A confirmer live avant d'armer "
-                 "un trampoline. Aucun octet du jeu dans ce resume."),
-        "methods": summaries,
-    }
+        report = {
+            "schema": "rdr2-rage-packfile-abi-readonly/1",
+            "sha256": sha.hexdigest(),
+            "note": ("Hypothese STATIQUE de l'ABI. A confirmer live avant "
+                     "d'armer un trampoline. Aucun octet du jeu dans ce "
+                     "resume."),
+            "methods": summaries,
+        }
+        if sweep:
+            slots, slot_listings, candidates = sweep_vtable(image, max_insns)
+            report["vtable_sweep"] = slots
+            report["lifecycle_candidates"] = candidates
+            listings.update(slot_listings)
     return report, listings
 
 
@@ -153,12 +203,29 @@ def main(argv=None) -> int:
     p.add_argument("eboot", type=Path)
     p.add_argument("--expected-sha256", default=USER_CONFIRMED_100_SHA256)
     p.add_argument("--max-insns", type=int, default=160)
+    p.add_argument("--sweep", action="store_true",
+                   help="Balaye les 112 slots et propose les candidats "
+                        "close/seek/size (lecture seule)")
     p.add_argument("--out", type=Path,
                    help="Fichier LOCAL pour le listing complet (NE PAS commiter)")
     args = p.parse_args(argv)
+    # Never clobber an existing file (the EBOOT above all) with the listing.
+    if args.out:
+        try:
+            same = args.out.resolve() == args.eboot.resolve()
+        except OSError:
+            same = False
+        if same:
+            print("Refus : --out est l'EBOOT d'entree (ecrasement interdit)",
+                  file=sys.stderr)
+            return 2
+        if args.out.exists():
+            print("Refus d'ecraser un fichier existant : " + str(args.out),
+                  file=sys.stderr)
+            return 2
     try:
         report, listings = analyse(args.eboot, args.expected_sha256,
-                                   args.max_insns)
+                                   args.max_insns, sweep=args.sweep)
     except (ValueError, RuntimeError, OSError) as exc:
         print("Analyse ABI interrompue : " + str(exc), file=sys.stderr)
         return 2

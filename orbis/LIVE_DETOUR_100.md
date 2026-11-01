@@ -84,6 +84,25 @@ Lecture SysV : `Open(this, const char* path, int64 read_only)` et
 live avant d'armer. Test : `tests/test_inspect_rage_packfile_abi.py` (ELF
 synthétique, stubs encodés à la main ; aucun octet du jeu).
 
+### Cycle de vie close/seek/size — NON identifié de façon fiable
+
+`--sweep` balaie les 112 slots de la vtable et propose, par forme d'arguments,
+des candidats (`--out` = listing local non commité). Résultat sur l'EBOOT 1.00 :
+candidats seek (4 args) = slots {11, 17, 18, 48, 49} ; candidats close/size
+(2 args) = 25 slots. **Le compte d'arguments ne suffit pas** : sur du vrai code
+beaucoup de handlers lisent un champ de `this` avant de toucher le handle, donc
+l'heuristique de contiguïté sous-compte (p. ex. close/size près de Read
+apparaissent à tort en 0/1 arg). Identifier précisément close/seek/size
+demanderait une analyse sémantique plus profonde (cibles d'appel, accès
+champs — Ghidra, actuellement déconnecté) ou une confirmation live. **Aucun
+slot n'est donc désigné** (ne pas deviner). `lifecycle_verified` reste à 0,
+et le détour 2-slots Open/Read ne remet aucun bridge token au jeu.
+
+> Conséquence : la voie packfile « handle » ne peut pas encore produire d'effet
+> visible sans ce cycle de vie. La voie **text-loader** (`lml_rage_dispatch_text_loader`,
+> un seul appel synchrone, sans handle persistant) reste l'option offline-safe
+> qui n'a besoin ni de close/seek/size ni de l'identification de ces slots.
+
 ## Hook bodies Open/Read (core clean-room)
 
 `runtime/rdr2_100_packfile_hooks.{h,c}` : le **corps** des deux hooks, appelé

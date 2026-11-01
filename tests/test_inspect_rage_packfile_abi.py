@@ -79,5 +79,39 @@ class TestPackfileAbiDecoder(unittest.TestCase):
         self.assertEqual(s["contiguous_arg_count"], 1)  # stops at rsi
 
 
+class TestRoleHint(unittest.TestCase):
+    def test_shapes_map_to_lifecycle_candidates(self):
+        self.assertIn("seek", abi._role_hint(4))
+        self.assertIn("close", abi._role_hint(2))
+        self.assertIn("read", abi._role_hint(5))
+        self.assertIn("open", abi._role_hint(3))
+        self.assertEqual(abi._role_hint(0), "unknown/nullary")
+
+
+class TestOutputGuard(unittest.TestCase):
+    """Regression: the listing --out must never clobber a file or the EBOOT."""
+
+    def test_refuses_existing_out_file(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            eboot = Path(folder) / "eboot.bin"
+            eboot.write_bytes(b"not a real eboot")
+            out = Path(folder) / "listing.json"
+            out.write_text("precious", encoding="utf-8")
+            rc = abi.main([str(eboot), "--out", str(out)])
+            self.assertEqual(rc, 2)
+            # Untouched: the guard runs before any analysis or write.
+            self.assertEqual(out.read_text(encoding="utf-8"), "precious")
+
+    def test_refuses_out_equal_to_input(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            eboot = Path(folder) / "eboot.bin"
+            eboot.write_bytes(b"not a real eboot")
+            rc = abi.main([str(eboot), "--out", str(eboot)])
+            self.assertEqual(rc, 2)
+            self.assertEqual(eboot.read_bytes(), b"not a real eboot")
+
+
 if __name__ == "__main__":
     unittest.main()

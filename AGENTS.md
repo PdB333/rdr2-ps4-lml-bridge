@@ -134,6 +134,9 @@ Build in PowerShell from the repository root:
 Build the native RAGE VFS host test harness:
     g++ -std=c++17 -O2 -Wall -Wextra -Werror -static -static-libgcc -static-libstdc++ .\runtime\overlay_index.cpp .\runtime\rage_vfs_redirect.cpp .\runtime\rage_vfs_harness.cpp -o .\orbis_build\rage_vfs_harness.exe
 
+Build the fiPackfile8 Open/Read hook-bodies host harness:
+    g++ -std=c++17 -O2 -Wall -Wextra -Werror -static -static-libgcc -static-libstdc++ .\runtime\overlay_index.cpp .\runtime\rage_vfs_redirect.cpp .\runtime\rdr2_100_packfile_hooks.c .\runtime\rdr2_100_packfile_hooks_harness.c -o .\orbis_build\rdr2_100_packfile_hooks_harness.exe
+
 Full tests AFTER generating build outputs:
     python -B -m unittest discover -s .\tests -p "test_*.py" -v
 

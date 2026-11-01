@@ -84,11 +84,62 @@ Lecture SysV : `Open(this, const char* path, int64 read_only)` et
 live avant d'armer. Test : `tests/test_inspect_rage_packfile_abi.py` (ELF
 synthétique, stubs encodés à la main ; aucun octet du jeu).
 
+## Hook bodies Open/Read (core clean-room)
+
+`runtime/rdr2_100_packfile_hooks.{h,c}` : le **corps** des deux hooks, appelé
+par le trampoline une fois les slots échangés. Il relie l'ABI statique récupérée
+au backend read-through `lml_rage_*` (rage_vfs_redirect.h) :
+
+- `lml_packfile_hook_open(self, path, read_only)` : consulte l'overlay ; si le
+  chemin est remplacé (source OVERLAY, lecture seule), renvoie un **bridge
+  token** et le mémorise ; sinon laisse le jeu ouvrir son propre handle natif.
+- `lml_packfile_hook_read(self, handle, buffer, size, extra)` : sert les octets
+  de l'overlay pour un bridge token, sinon transmet au `Read` original intact.
+- `lml_packfile_hook_close(handle)` : libère le bridge token (slot close à
+  hooker quand son ABI sera récupérée).
+
+Règles (comme `rdr2_100_natives`) : **pur/injectable** (l'original n'est atteint
+que via des pointeurs fournis par l'appelant — jamais d'adresse jeu en dur),
+**fail-closed**. Deux gates :
+
+- `abi_verified` : l'ABI Open/Read est confirmée live. À 0 → pass-through total.
+- `lifecycle_verified` : close/seek/size sont aussi hookés **et** vérifiés. À 0,
+  **aucun** bridge token n'est remis au jeu (sinon un close/seek natif
+  non-hooké sur un token planterait le moteur, cf. invariant de
+  rage_vfs_redirect.h). Le chemin testé par défaut (Open/Read vérifiés,
+  lifecycle non) est donc un pass-through sûr : fonctionnement original préservé.
+
+Seules les ABI Open/Read sont récupérées statiquement ; **close/seek/size restent
+à récupérer et à valider** avant de passer `lifecycle_verified = 1`. Test :
+`tests/test_rdr2_100_packfile_hooks.py` (harness C liant le backend réel, sert
+`MODDED_CONTENT` vs `ORIGINAL_CONTENT` ; aucun octet du jeu).
+
+## Publication des trampolines vers `--arm`
+
+Le détour n'écrit jamais d'adresse devinée : `--arm` exige `--trampoline-open`
+et `--trampoline-read`, les adresses **runtime** des deux thunks asm. La chaîne
+prévue (console-only, **NON VÉRIFIÉE**) :
+
+1. Un PRX chargé en mémoire expose deux thunks asm minces. Chaque thunk
+   préserve la convention SysV, appelle le hook body C correspondant avec les
+   arguments reçus (Open : `self, path, read_only` ; Read :
+   `self, handle, buffer, size, extra`), et détient le pointeur « original »
+   sauvegardé (la valeur de slot d'avant l'échange) pour le pass-through.
+2. `module_start` du PRX publie les adresses runtime des deux thunks (p. ex.
+   via un petit fichier JSON dans `/data/lml_bridge/` ou une lecture mémoire
+   ciblée), que l'opérateur relit pour les passer à `--trampoline-open/-read`.
+3. L'ordre d'échange des slots importe : publier/armer `Read` **avant** `Open`,
+   pour qu'aucun bridge token ne puisse être lu par le `Read` original.
+
+Tant que ce PRX + ses thunks ne sont pas écrits **et** que close/seek/size ne
+sont pas hookés/vérifiés, `--arm` reste interdit par conception.
+
 ## Ce qui reste (console)
 
-- **Charger un PRX** fournissant les deux trampolines (handlers Open/Read qui
-  lisent à travers vers l'original puis consultent l'`OverlayIndex`). Sans lui,
-  `--arm` est impossible par conception — rien à armer.
+- **Écrire le PRX + les thunks asm** publiant les deux trampolines runtime, et
+  **récupérer+vérifier l'ABI close/seek/size** pour hooker le cycle de vie
+  complet avant de remettre un bridge token au jeu. Sans cela, `--arm` est
+  impossible par conception — rien à armer.
 - Prouver l'effet visible réel avec une ressource `.meta` 1.00 réelle
   (cf. [OVERLAY_VISIBLE_EFFECT_100](OVERLAY_VISIBLE_EFFECT_100.md)).
 - L'ABI du `NativeContext` reste non validée

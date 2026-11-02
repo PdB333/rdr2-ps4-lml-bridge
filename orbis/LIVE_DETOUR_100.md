@@ -138,8 +138,12 @@ au backend read-through `lml_rage_*` (rage_vfs_redirect.h) :
   token** et le mémorise ; sinon laisse le jeu ouvrir son propre handle natif.
 - `lml_packfile_hook_read(self, handle, buffer, size, extra)` : sert les octets
   de l'overlay pour un bridge token, sinon transmet au `Read` original intact.
-- `lml_packfile_hook_close(handle)` : libère le bridge token (slot close à
-  hooker quand son ABI sera récupérée).
+- `lml_packfile_hook_close(handle)` : libère le bridge token (slot close 19).
+- `lml_packfile_hook_seek(handle, offset, whence, &out)` / `lml_packfile_hook_size(handle, &out)` :
+  servent le flux overlay pour un bridge token (slots seek 17/18, size 22/23),
+  et renvoient `NOT_BRIDGE` pour un vrai handle (le trampoline forwarde vers
+  l'original) — même motif que close. Le `whence` du moteur est supposé POSIX et
+  **doit être validé live** avant `lifecycle_verified = 1`.
 
 Règles (comme `rdr2_100_natives`) : **pur/injectable** (l'original n'est atteint
 que via des pointeurs fournis par l'appelant — jamais d'adresse jeu en dur),
@@ -153,9 +157,10 @@ que via des pointeurs fournis par l'appelant — jamais d'adresse jeu en dur),
   lifecycle non) est donc un pass-through sûr : fonctionnement original préservé.
 
 Les slots close/seek/size sont désormais **désignés statiquement** (voir table
-ci-dessus : close=19, seek=17/18, size=22/23) ; il reste à **hooker leur ABI et
-à la valider live**, et à **trancher Read slot 11 vs 13**, avant de passer
-`lifecycle_verified = 1`. Test :
+ci-dessus : close=19, seek=17/18, size=22/23) **et leurs hook bodies sont écrits
+et testés hors ligne** (close/seek/size, harness `rdr2_100_packfile_hooks_harness.c`,
+171 tests). Il reste à **valider live** leur ABI (dont le `whence` du moteur) et à
+**trancher Read slot 11 vs 13** avant de passer `lifecycle_verified = 1`. Test :
 `tests/test_rdr2_100_packfile_hooks.py` (harness C liant le backend réel, sert
 `MODDED_CONTENT` vs `ORIGINAL_CONTENT` ; aucun octet du jeu).
 

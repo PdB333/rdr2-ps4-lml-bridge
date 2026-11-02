@@ -119,3 +119,30 @@ int lml_packfile_hook_close(LmlPackfileHooks* hooks, uint64_t handle) {
     unregister_token(hooks, handle);
     return LML_PACKFILE_OK;
 }
+
+int lml_packfile_hook_seek(LmlPackfileHooks* hooks, uint64_t handle,
+                           int64_t offset, int whence, int64_t* out_result) {
+    if (!hooks || !out_result) {
+        return LML_PACKFILE_BAD_ARGUMENT;
+    }
+    if (!lml_packfile_is_bridge_token(hooks, handle)) {
+        return LML_PACKFILE_NOT_BRIDGE;
+    }
+    /* Bridge tokens are only handed out after abi/lifecycle checks. */
+    *out_result = lml_rage_seek_file(handle, offset, whence);
+    hooks->redirected_seeks++;
+    return LML_PACKFILE_OK;
+}
+
+int lml_packfile_hook_size(LmlPackfileHooks* hooks, uint64_t handle,
+                           int64_t* out_result) {
+    if (!hooks || !out_result) {
+        return LML_PACKFILE_BAD_ARGUMENT;
+    }
+    if (!lml_packfile_is_bridge_token(hooks, handle)) {
+        return LML_PACKFILE_NOT_BRIDGE;
+    }
+    *out_result = lml_rage_size_file(handle);
+    hooks->redirected_sizes++;
+    return LML_PACKFILE_OK;
+}

@@ -190,6 +190,22 @@ int main(int argc, char** argv) {
     ASSERT(read_all(&hooks, handle, buffer, sizeof(buffer)) == 14);
     ASSERT(strcmp(buffer, "MODDED_CONTENT") == 0);
     ASSERT(hooks.redirected_opens == 1 && hooks.redirected_reads == 1);
+    /* seek/size hook bodies serve the overlay stream for a bridge token. */
+    {
+        int64_t result = -1;
+        ASSERT(lml_packfile_hook_size(&hooks, handle, &result) == LML_PACKFILE_OK);
+        ASSERT(result == 14);                   /* "MODDED_CONTENT" is 14 bytes */
+        ASSERT(lml_packfile_hook_seek(&hooks, handle, 5, SEEK_SET, &result) ==
+               LML_PACKFILE_OK);
+        ASSERT(result == 5);
+        ASSERT(hooks.redirected_seeks == 1 && hooks.redirected_sizes == 1);
+        /* NULL out_result is rejected without touching backend state. */
+        ASSERT(lml_packfile_hook_size(&hooks, handle, NULL) ==
+               LML_PACKFILE_BAD_ARGUMENT);
+        ASSERT(lml_packfile_hook_seek(&hooks, handle, 0, SEEK_SET, NULL) ==
+               LML_PACKFILE_BAD_ARGUMENT);
+        ASSERT(hooks.redirected_seeks == 1 && hooks.redirected_sizes == 1);
+    }
     /* close releases the bridge token; a second close is no longer a bridge. */
     ASSERT(lml_packfile_hook_close(&hooks, handle) == LML_PACKFILE_OK);
     ASSERT(!lml_packfile_is_bridge_token(&hooks, handle));
@@ -203,6 +219,17 @@ int main(int argc, char** argv) {
     ASSERT(g_game.opened == 1);
     ASSERT(read_all(&hooks, handle, buffer, sizeof(buffer)) == (int)ORIGINAL_LEN);
     ASSERT(strcmp(buffer, ORIGINAL_BYTES) == 0);
+    /* seek/size on a real game handle forward to the original (NOT_BRIDGE),
+     * leaving out_result untouched. */
+    {
+        int64_t result = 123;
+        ASSERT(lml_packfile_hook_seek(&hooks, handle, 0, SEEK_SET, &result) ==
+               LML_PACKFILE_NOT_BRIDGE);
+        ASSERT(result == 123);
+        ASSERT(lml_packfile_hook_size(&hooks, handle, &result) ==
+               LML_PACKFILE_NOT_BRIDGE);
+        ASSERT(result == 123);
+    }
     ASSERT(lml_packfile_hook_close(&hooks, handle) == LML_PACKFILE_NOT_BRIDGE);
 
     /* (4) Fully verified but a non-read-only open is never overridden. */

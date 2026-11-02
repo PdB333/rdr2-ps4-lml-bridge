@@ -1,0 +1,5 @@
+# Artefacts de build (reconstruits par build.cmd)
+*.o
+*.prx
+*.sprx
+*.exe

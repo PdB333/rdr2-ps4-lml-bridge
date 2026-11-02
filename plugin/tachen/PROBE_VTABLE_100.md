@@ -80,6 +80,31 @@ ps5debug n'est pas chargé, mais ps5debug est la voie primaire.
   tranche **en live** : c'est l'étape SUIVANTE (compteur non invasif), permise
   seulement une fois ce probe `MATCH` sur toute la ligne.
 
+## Trancher 11 vs 13 — verdict honnête (pas de trafic fabriqué)
+
+[`ps5debug_trace.py`](ps5debug_trace.py) (DISASM_REGION + FIND_XREFS_TO, lecture
+pure) sur RDR2 pid=235 :
+- **slot 13** : fonction courte se terminant par un dispatch indirect
+  (`call [reg+…]`) → couche **déléguante**, pas la primitive.
+- **slot 11** : fonction substantielle (logique de lecture) → primitive.
+- **0 xref direct** vers la vtable dans le segment code ⇒ l'install de la vtable
+  est **relocation/GOT-based** (matérialisée comme constante 64-bit, pas via un
+  `lea` RIP-relatif) ; localiser le constructeur demandera un scan data/GOT ou
+  l'analyse de relocations (Ghidra), en lecture pure.
+
+> **Limite assumée.** Compter le trafic réel 11-vs-13 sur un chargement story
+> exigerait soit un **breakpoint matériel** (registres DR) qui *gèle* le thread à
+> chaque appel — impraticable sur une primitive appelée des milliers de fois —,
+> soit de l'**instrumentation** (écriture mémoire, interdite tant que le détour
+> n'est pas validé). On **ne fabrique donc pas** de chiffres de trafic.
+
+**Décision de cible par la structure statique (fiable, recoupée live) :** slot 48
+(ReadFull) boucle sur l'offset 0x58, c.-à-d. **slot 11** ⇒ slot 11 est la
+primitive Read universelle du packfile → **cible de détour = slot 11 (offset
+0x58)**. slot 13 (couche déléguante) n'est pas la primitive. Les hooks visant
+historiquement slot 13 sont donc à **repointer sur slot 11**. La confirmation par
+trafic réel reste un point ouvert explicite (tracing d'exécution, différé).
+
 ## Après ce probe (dans l'ordre, chaque étape gated par la précédente)
 
 1. Charger `lml_probe_ps4.prx`, lire le klog : tous les slots en `MATCH`,

@@ -1,5 +1,46 @@
 # Reprise par une autre IA — RDR2 PS4 1.00 / PS5 13.40 / LML Bridge
 
+## FRONTIÈRE ACTUELLE (2 novembre 2026) — à lire en premier
+
+La voie de chargement retenue est un **plugin `.prx`/`.sprx` TacHen**
+(GronedWaffel/TacHen), **pas** resolve_loader/ELF_RPC (abandonnés : l'en-tête
+ELF n'est pas mappée en RAM sur Orbis). Spike « preuve de vie » dans
+`plugin/tachen/` :
+
+- `lml_plugin.c` : `module_start`/`module_stop` qui logguent dans
+  `/data/lml_bridge_spike.log`, **sans toucher la mémoire du jeu**.
+- `build.cmd` : build portable **vérifié** sous Windows — `clang -target
+  x86_64-sie-ps5 -c` → `ld.lld --shared` (flags SCE + `prx.script`) → patch
+  `e_type` `ET_DYN(3)`→`ET_SCE_DYNAMIC(0xfe18)` (`patch_etype.py`) →
+  `make_fself --ptype fake`. Toolchain extract-and-go sous
+  `C:/Users/Selat/ps5-tools/` : LLVM 23.1.4 (clang + ld.lld gèrent `sie-ps5`),
+  ps5-payload-sdk v0.43 (sysroot `target/`, `make_fself.py`). Zig rejette
+  `sie-ps5`. Les wrappers `prospero-clang`/`-lld` sont inutilisables
+  (scripts Linux ; `-pie` en dur incompatible `--shared`).
+- `validate_against_tachen.c` : compile le **vrai** `tac_prx_inspect` de TacHen
+  (`platform/native/prx-image.c`) → `lml_plugin.sprx` (18720 o, magic
+  `0x1d3d154f`) **ACCEPTÉ** (rc=0, platform=0 ⇒ prend la plateforme PS4 du jeu).
+- `INSTALL_TACHEN.md` : procédure console (Plugins → importer → enregistrer pour
+  RDR2 CUSA08519 v01.00 → charger **manuellement** une fois en mode Story).
+
+> ⚠️ **Validation de CONTENEUR uniquement.** `rc=0` ne prouve NI l'exécution de
+> `module_start` en jeu, NI la résolution live des imports, NI aucun
+> comportement console. Le jalon « notre code tourne dans RDR2 1.00 » (ligne
+> dans le log après chargement manuel réel) **n'est pas établi**. Ne pas le
+> présenter comme fait.
+
+**Prochaine étape réelle :** charger le `.sprx` sur la console via TacHen
+(cf. `INSTALL_TACHEN.md`) et confirmer le démarrage via `runtime.log` de TacHen
++ le marqueur. Interdit avant ce jalon : greffer
+`rdr2_100_packfile_hooks_arm()` dans `module_start` (exige la validation live
+des signatures `fiPackfile8` — cf. `orbis/LIVE_DETOUR_100.md`,
+[[rdr2-100-fipackfile8-lifecycle-slots]]).
+
+La section ci-dessous (31 octobre) reste valide : le mismatch EBOOT↔RAM est
+**RÉSOLU** (bug de traduction d'adresses, pas un mauvais EBOOT).
+
+---
+
 ## RÉSOLU (31 octobre 2026, seconde session) : correspondance positive EBOOT ↔ RAM
 
 **Cause du mismatch : erreur de traduction d'adresses dans le comparateur, pas

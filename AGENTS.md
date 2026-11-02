@@ -1,5 +1,31 @@
 # Project handoff for coding agents
 
+## CURRENT FRONTIER (2 November 2026) — read this first
+
+The active load path is a **TacHen `.prx`/`.sprx` plugin**, NOT
+resolve_loader/ELF_RPC (abandoned: the ELF header is not mapped on Orbis).
+A proof-of-life spike lives in [`plugin/tachen/`](plugin/tachen/):
+
+- `lml_plugin.c` — `module_start`/`module_stop` that only log to
+  `/data/lml_bridge_spike.log`; they do **not** touch game memory.
+- `build.cmd` — the verified portable Windows build (clang `sie-ps5` `-c` →
+  `ld.lld --shared` → patch `e_type` to `0xfe18` → `make_fself --ptype fake`).
+  Toolchain is extract-and-go under `C:/Users/Selat/ps5-tools/` (LLVM 23.1.4 +
+  ps5-payload-sdk v0.43); Zig rejects `sie-ps5`.
+- `validate_against_tachen.c` — compiles TacHen's real `tac_prx_inspect`;
+  `lml_plugin.sprx` is **ACCEPTED** (rc=0, platform=0).
+- `INSTALL_TACHEN.md` — how to load the `.sprx` on console (Plugins → register
+  for RDR2 CUSA08519 v01.00 → load manually once in Story Mode).
+
+**This is container validation only.** It does NOT prove `module_start` runs
+in-game. The console milestone (the marker line in the log via a manual load)
+is **not yet established**. Do not report it as done.
+
+The EBOOT↔RAM address mismatch from 31 Oct is **RESOLVED** (ELF↔runtime
+translation bug, not a wrong EBOOT): runtime addr = image_base + profile RVA,
+image_base = first `executable` r-x region (`0x00400000`). See
+`HANDOFF_NEXT_AI.md` top section for the corrected `fiPackfile8` addresses.
+
 ## Goal and status
 
 Build an independent LML-style file replacement bridge for Red Dead

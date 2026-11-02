@@ -44,6 +44,32 @@ Le plugin écrit sur **deux canaux** :
   > que ces fichiers ne surfacent pas non plus. **Prévoir un lecteur klog**
   > comme canal de secours fiable.
 
+## Voie retenue : ps5debug-NG (lecture pure, PAS de plugin)
+
+Plus simple et plus propre que le plugin + klog : ps5debug-NG fait du RPC
+lecture mémoire sur le process. [`ps5debug_vtable_probe.py`](ps5debug_vtable_probe.py)
+(port 744, `PROC_LIST`/`PROC_MAPS`/`PROC_READ`, **aucune écriture**) lit la base
+de l'eboot, la protection du segment de la vtable, puis les pointeurs de slots,
+et les recoupe aux RVA. L'IP console est passée en argument (**jamais commitée**).
+
+```bash
+python -I plugin/tachen/ps5debug_vtable_probe.py <IP_CONSOLE> [pid]
+```
+
+**Résultat live (2 nov. 2026, RDR2 pid=235) :**
+```
+base eboot = 0x400000
+vtable_VA=0x6ab00f8 dans [executable] 0x6814000-0x6b90000 prot=r-- (READ-ONLY/RELRO OK)
+slot 2/11/13/17/18/19/22/23/48 : tous MATCH (base+RVA)
+TOUS MATCH -> signatures validees live
+```
+⇒ adresses et layout **validés live**, vtable bien en segment read-only. Armer le
+détour exigera un toggle de protection (`CMD_PROC_PROTECT`), donc une écriture :
+reste **gated** tant que 11-vs-13 n'est pas tranché par observation de trafic.
+
+Le plugin `lml_probe.c` reste disponible comme voie alternative (sortie klog) si
+ps5debug n'est pas chargé, mais ps5debug est la voie primaire.
+
 ## Résultat statique déjà acquis (REA/Ghidra)
 
 - **slot 11 = primitive Read moteur** (offset 0x58), wrappée par slot 48

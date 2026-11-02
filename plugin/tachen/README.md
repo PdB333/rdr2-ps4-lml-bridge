@@ -102,7 +102,15 @@ dans la mémoire du jeu.
 
 - [x] Recette PS4 reproductible (`build_ps4.ps1`), PRX accepté par le vrai
   `tac_prx_inspect`, **sans duplicata de PT_LOAD**.
-- [ ] Chargement manuel réel + `runtime.log` montrant `module.start` sans rejet
-  `0x80020016` (= preuve d'exécution en jeu ; non encore établie).
+- [x] Chargement manuel réel + `runtime.log` montrant `game.module.start
+  status=completed phase=module-started` (CUSA08519 01.00, pid 109/235), **sans
+  rejet `0x80020016`**, et `modules/<hash>.session` = « Module initializer
+  completed » pour le hash de notre PRX. **Jalon atteint le 2 nov. 2026** (preuve
+  tirée de la console par FTP plein système port 2121). Notre code s'exécute dans
+  le process RDR2 1.00.
+  > Le marqueur fichier `/data/lml_bridge_spike.log` reste **absent** du FTP : le
+  > sandbox du jeu jaile `/data`, les écritures best-effort du constructeur n'ont
+  > pas atterri dans un emplacement exposé. Attendu ; `runtime.log` + `.session`
+  > (côté TacHen) sont le juge, pas le marqueur fichier.
 - [ ] Ensuite seulement : greffer l'armement `rdr2_100_packfile_hooks` dans le
   constructeur, après validation live des signatures fiPackfile8.

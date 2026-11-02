@@ -35,7 +35,14 @@
 #define LML_O_WRONLY 0x0001
 #define LML_O_CREAT  0x0200
 #define LML_O_APPEND 0x0008
-#define LML_LOGPATH  "/data/lml_bridge_spike.log"
+/* Chemins candidats, best-effort. Le FTP TacHen anonyme (port 2122) est jailé
+ * sur le dossier share : on vise aussi share + share/payloads pour une relecture
+ * directe. L'un au moins doit passer le sandbox du jeu ET être exposé. */
+static const char* const LML_LOGPATHS[] = {
+  "/data/tachen/share/lml_bridge_spike.log",
+  "/data/tachen/share/payloads/lml_bridge_spike.log",
+  "/data/lml_bridge_spike.log",
+};
 
 /* Longueur d'une C-string, sans libc. */
 static size_t
@@ -58,11 +65,6 @@ lml_debug(const char* text) {
  * message, sans snprintf ni libc. */
 static void
 lml_file(const char* msg) {
-  int fd = sceKernelOpen(LML_LOGPATH,
-                         LML_O_WRONLY | LML_O_CREAT | LML_O_APPEND, 0644);
-  if (fd < 0) {
-    return;
-  }
   /* Horodatage brut : « [LML] <processtime> » en décimal, sans libc. */
   uint64_t t = sceKernelGetProcessTime();
   char num[24];
@@ -77,11 +79,18 @@ lml_file(const char* msg) {
     }
   }
   const char* tag = "[LML] ";
-  (void)sceKernelWrite(fd, tag, lml_len(tag));
-  (void)sceKernelWrite(fd, num + i, sizeof(num) - (size_t)i);
-  (void)sceKernelWrite(fd, msg, lml_len(msg));
-  (void)sceKernelWrite(fd, "\n", 1);
-  (void)sceKernelClose(fd);
+  for (size_t k = 0; k < sizeof(LML_LOGPATHS) / sizeof(LML_LOGPATHS[0]); ++k) {
+    int fd = sceKernelOpen(LML_LOGPATHS[k],
+                           LML_O_WRONLY | LML_O_CREAT | LML_O_APPEND, 0644);
+    if (fd < 0) {
+      continue;
+    }
+    (void)sceKernelWrite(fd, tag, lml_len(tag));
+    (void)sceKernelWrite(fd, num + i, sizeof(num) - (size_t)i);
+    (void)sceKernelWrite(fd, msg, lml_len(msg));
+    (void)sceKernelWrite(fd, "\n", 1);
+    (void)sceKernelClose(fd);
+  }
 }
 
 /* Exécuté par le module_start du CRT via .init_array, sur un thread du jeu. */

@@ -77,19 +77,23 @@ plugins until you are in game »).
 
 Deux sources de vérification :
 
-- **`runtime.log` de TacHen** : il journalise désormais l'enregistrement, les
-  transitions d'étape du module natif, le **handle du loader** et le **résultat
-  de l'initialiseur**. Un `module_start` qui renvoie 0 avec un handle valide =
-  notre code a bien démarré dans le process.
-- **Notre marqueur** `/data/lml_bridge_spike.log`.
-  > ⚠️ **À VÉRIFIER / limite connue** : le plugin tourne dans le **sandbox du
-  > jeu**. La visibilité de `/data/` et le quota tmpfs (2 MiB observé sur les
-  > racines sandbox) peuvent empêcher l'écriture ou la relecture. Le partage FTP
-  > est raciné sur `/data/tachen/share`, donc `/data/lml_bridge_spike.log` n'y
-  > sera **pas** forcément visible. Si la ligne n'apparaît pas, le plus simple
-  > est de rediriger le log vers `/data/tachen/share/lml_bridge_spike.log` (voir
-  > `lml_plugin.c`) pour le relire par FTP. `runtime.log` reste la source de
-  > vérité primaire sur le démarrage du module.
+- **`runtime.log` de TacHen** (source de vérité primaire) : journalise
+  l'enregistrement, les transitions d'étape du module natif et le résultat de
+  l'initialiseur. **Vérifié console (2 nov. 2026, FTP port 2121 racine)** :
+  plusieurs `game.module.start status=completed phase=module-started`
+  (CUSA08519 01.00, pid 109/235), **aucun `0x80020016`**. Un dernier essai
+  `MODULE_ALREADY_ATTEMPTED` = normal (fermer RDR2 entre essais).
+- **`/data/tachen/modules/<hash>.session`** : pour le hash de notre PRX,
+  contient **« Module initializer completed; no paired plugin activation
+  exports »** → `module_start` (CRT) a parcouru `init_array` jusqu'au bout, donc
+  notre constructeur s'est exécuté. « no paired exports » = normal (pas de
+  `plugin_load/unload`).
+- **Notre marqueur** `/data/lml_bridge_spike.log` : **ABSENT en pratique.** Le
+  plugin tourne dans le **sandbox du jeu** qui jaile `/data` (visibilité + quota
+  tmpfs). Les 3 chemins candidats (`lml_plugin.c`) n'ont pas produit de fichier
+  relisible par FTP. Ce n'est **pas** un échec du jalon : le marqueur fichier
+  n'est pas le juge, `runtime.log` + `.session` le sont. Le canal
+  `sceKernelDebugOutText` n'est pas relisible par FTP non plus.
 
 ## 6. Interprétation honnête
 

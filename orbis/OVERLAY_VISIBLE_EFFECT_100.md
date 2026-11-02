@@ -42,6 +42,32 @@ synthétique, **aucun octet du jeu**), marqueur `LML_OVERLAY_HELLO_100`.
 Test de la chaîne : `tests/test_overlay_hello_100.py` (compile + charge via
 `runtime/overlay_probe.exe`, skip si le probe n'est pas bâti).
 
+### Validation hôte avec un mod réel (LAW) — 2 nov. 2026
+
+Mod candidat pour le premier effet visible : **LAW** (SerjRozov, v1.0), un
+`EasyInstall` de 45 `FileReplacement` ciblant des `.meta` de dispatch/IA
+(`dispatchresponses/`, `ai/crimeinformation.meta`, `combatbehaviour.meta`,
+`pedperception.meta`, `dispatch.meta`). Le mod n'est **pas** dans ce dépôt
+(contenu tiers) ; stage compilé hors dépôt.
+
+Résultat `compiler.py --all-groups` puis `overlay_probe` (hôte, hors console) :
+
+- 45 entrées, **toutes `xml_metadata` (.meta)** — 0 `rage_xml`, 0 `rsc8_binary`,
+  0 `.gxt2`. **Tout tombe dans la classe texte/XML offline-safe** ; aucune
+  sérialisation binaire requise.
+- 0 warning ; aucune clé ambiguë (les préfixes `update:/` et `common:/` de
+  certaines villes produisent des clés distinctes, pas de collision).
+- `OverlayIndex::load` : les 45 `sha256` + tailles **validés** contre le payload
+  physique (le load échouerait sinon). Lookup exact et insensible à la casse →
+  chemin payload ; clé absente → `NOT_FOUND`. ~1.08 Mo de payload.
+
+> **Hôte seulement.** Ceci prouve que la chaîne compile/charge/résout un mod
+> 1.00 réel, pas qu'il produit un effet en jeu. La compatibilité du **contenu**
+> des `.meta` avec le parseur de données 1.00 est affirmée par l'auteur du mod,
+> non prouvée ici ; le mount du bridge sur PS5 et l'effet visible réel restent à
+> valider sur console (cf. section suivante). Règle respectée : un test hôte ne
+> vaut pas réussite sur machine réelle.
+
 ## Racine du payload sur console
 
 Pour la configuration **sans etaHEN** en FW 13.40, la racine des payloads est :

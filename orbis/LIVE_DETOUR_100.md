@@ -84,24 +84,48 @@ Lecture SysV : `Open(this, const char* path, int64 read_only)` et
 live avant d'armer. Test : `tests/test_inspect_rage_packfile_abi.py` (ELF
 synthétique, stubs encodés à la main ; aucun octet du jeu).
 
-### Cycle de vie close/seek/size — NON identifié de façon fiable
+### Cycle de vie close/seek/size — identifié statiquement (Ghidra), NON validé live
 
-`--sweep` balaie les 112 slots de la vtable et propose, par forme d'arguments,
-des candidats (`--out` = listing local non commité). Résultat sur l'EBOOT 1.00 :
-candidats seek (4 args) = slots {11, 17, 18, 48, 49} ; candidats close/size
-(2 args) = 25 slots. **Le compte d'arguments ne suffit pas** : sur du vrai code
-beaucoup de handlers lisent un champ de `this` avant de toucher le handle, donc
-l'heuristique de contiguïté sous-compte (p. ex. close/size près de Read
-apparaissent à tort en 0/1 arg). Identifier précisément close/seek/size
-demanderait une analyse sémantique plus profonde (cibles d'appel, accès
-champs — Ghidra, actuellement déconnecté) ou une confirmation live. **Aucun
-slot n'est donc désigné** (ne pas deviner). `lifecycle_verified` reste à 0,
-et le détour 2-slots Open/Read ne remet aucun bridge token au jeu.
+L'heuristique `--sweep` par compte d'arguments ne suffisait pas (beaucoup de
+handlers lisent un champ de `this` avant de toucher le handle → contiguïté
+sous-compte). Les slots ont depuis été désignés par **décompilation sémantique
+Ghidra headless** de la vtable `fiPackfile8` (RVA `0x066B00F8`, base Ghidra 0 ;
+critère = retour de l'expression de taille canonique et forme `(this, handle)`,
+pas un simple compte d'arguments) :
+
+| Opération            | Slot  | Offset vtable | RVA (base 0)            | Confiance            |
+|----------------------|-------|---------------|-------------------------|----------------------|
+| Close                | 19    | `+0x98`       | `0x0452BE00`            | solide (double-confirmé) |
+| Seek32 / Seek64      | 17/18 | `+0x88`/`+0x90` | `0x0452BA90`/`0x0452BAA0` | solide            |
+| Size32 / Size64      | 22/23 | `+0xB0`/`+0xB8` | `0x0452BE30`/`0x0452BE80` | solide            |
+| Read (primitive)     | 11    | `+0x58`       | `0x0452A870`            | solide — voir note   |
+| Read (forwarder)     | 13    | `+0x68`       | `0x0452B9D0`            | solide               |
+
+- **Close = slot 19** : `func_0x04524610(handle); return 0;` — libère le handle ;
+  réutilisé comme primitive close par slot 12.
+- **Seek = slots 17/18** : bornage offset vs taille, param `whence` ; paire 32/64.
+- **Size = slots 22/23** : signature `(this, handle)`, retournent
+  `(entry[0x14] & 0xfffffff0) + (entry[2] & 0xfffffff0)` (entrée compressée),
+  chemin « taille brute » `return entry[2]` sinon ; paire 32/64 comme Seek.
+- **Read** : slot 11 est la primitive interne du moteur (wrappée par slot 48
+  ReadFull) ; slot 13 forwarde vers un objet-membre (`*(this+0x10)` vtable `+0x68`),
+  une couche différente. Le hook actuel vise slot 13 — **à trancher live** par
+  quelle couche passe le chargement d'assets story-mode 1.00 avant d'armer.
+
+Helper résolveur handle→index partagé : `func_0x0452E970(this, handle, 0)`, puis
+verrou `*this+0x1e0`, puis entrée table `this[0xf] + idx*0x18 (+0x110/0x118)`.
+
+> **Identification statique ≠ validation console.** `lifecycle_verified` reste à
+> **0** : les slots close/seek/size sont désignés mais ni hookés ni vérifiés sur
+> console, et le point d'interception Read (slot 11 vs 13) n'est pas tranché.
+> Ne pas armer tant que ces slots ne sont pas hookés **et** validés live. Le
+> détour actuel ne remet donc aucun bridge token au jeu.
 
 > Conséquence : la voie packfile « handle » ne peut pas encore produire d'effet
-> visible sans ce cycle de vie. La voie **text-loader** (`lml_rage_dispatch_text_loader`,
-> un seul appel synchrone, sans handle persistant) reste l'option offline-safe
-> qui n'a besoin ni de close/seek/size ni de l'identification de ces slots.
+> visible tant que ce cycle de vie n'est pas validé live. La voie **text-loader**
+> (`lml_rage_dispatch_text_loader`, un seul appel synchrone, sans handle
+> persistant) reste l'option offline-safe qui n'a besoin ni de close/seek/size
+> ni de leur validation.
 
 ## Hook bodies Open/Read (core clean-room)
 
@@ -128,8 +152,10 @@ que via des pointeurs fournis par l'appelant — jamais d'adresse jeu en dur),
   rage_vfs_redirect.h). Le chemin testé par défaut (Open/Read vérifiés,
   lifecycle non) est donc un pass-through sûr : fonctionnement original préservé.
 
-Seules les ABI Open/Read sont récupérées statiquement ; **close/seek/size restent
-à récupérer et à valider** avant de passer `lifecycle_verified = 1`. Test :
+Les slots close/seek/size sont désormais **désignés statiquement** (voir table
+ci-dessus : close=19, seek=17/18, size=22/23) ; il reste à **hooker leur ABI et
+à la valider live**, et à **trancher Read slot 11 vs 13**, avant de passer
+`lifecycle_verified = 1`. Test :
 `tests/test_rdr2_100_packfile_hooks.py` (harness C liant le backend réel, sert
 `MODDED_CONTENT` vs `ORIGINAL_CONTENT` ; aucun octet du jeu).
 
@@ -155,10 +181,11 @@ sont pas hookés/vérifiés, `--arm` reste interdit par conception.
 
 ## Ce qui reste (console)
 
-- **Écrire le PRX + les thunks asm** publiant les deux trampolines runtime, et
-  **récupérer+vérifier l'ABI close/seek/size** pour hooker le cycle de vie
-  complet avant de remettre un bridge token au jeu. Sans cela, `--arm` est
-  impossible par conception — rien à armer.
+- **Écrire le PRX + les thunks asm** publiant les deux trampolines runtime.
+- **Trancher Read slot 11 vs 13** (couche réelle du chargement story-mode) puis
+  **hooker + vérifier live close=19 / seek=17,18 / size=22,23** (slots désignés
+  statiquement, voir table) pour hooker le cycle de vie complet avant de remettre
+  un bridge token au jeu. Sans cela, `--arm` reste impossible par conception.
 - Prouver l'effet visible réel avec une ressource `.meta` 1.00 réelle
   (cf. [OVERLAY_VISIBLE_EFFECT_100](OVERLAY_VISIBLE_EFFECT_100.md)).
 - L'ABI du `NativeContext` reste non validée

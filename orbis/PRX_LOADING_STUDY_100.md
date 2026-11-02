@@ -140,12 +140,44 @@ Voies de chargement (inchangées, à départager après le re-test) :
 `0x800000000`) via sa table d'exports ; (b) `CMD_PROC_ELF_RPC`
 (`0xBDAA0010`) avec un stub autonome.
 
+### Résultat du re-test live — ps5-1, 2 nov. 2026 (lecture seule)
+
+Exécuté : `tools/ps5debug_ng_rdr2_100_diag_loader.py` (lecture seule stricte,
+`CMD_PROC_READ` + `CMD_PROC_MAPS`, barrière de profil `check_live`). Process
+RDR2 1.00 PID 117, `image_base 0x400000`, profil fiPackfile8 conforme.
+
+- **Le slot GOT ancre est résolu** : `base + 0x0678CDA0` → `0x800016130`, un
+  pointeur dans la région **r-x de `libkernel.sprx`** (`0x800000000`–
+  `0x800048000`). Le « zéro » suspecté dans l'ancienne lecture est levé :
+  BIND_NOW tient, la voie ancre→libkernel est bonne.
+- **Mais l'en-tête ELF n'est PAS mappée.** Les 64 octets à la base du module
+  (`0x800000000`) sont du padding `cc` (int3), pas `\x7fELF`. Les **5** régions
+  de `libkernel.sprx` (r-x, r--, r--, rw-, rw-) et les régions voisines ne
+  commencent par aucun magic ELF. Entre `0x7EF000000` et `0x800000000` il n'y a
+  aucune page mappée : l'ehdr/phdr n'est pas en RAM. Le chargeur Orbis mappe le
+  SPRX **segment par segment** et jette l'en-tête.
+
+**Conséquence : la voie (a) est un cul-de-sac.** `resolve_loader` part de
+l'en-tête ELF pour atteindre `PT_DYNAMIC`/`PT_SCE_DYNLIBDATA` ; sans ehdr/phdr
+en RAM, il ne peut pas localiser `SYMTAB`/`STRTAB` sans deviner — ce que la
+règle du propriétaire interdit. Son échec affiche désormais ce diagnostic et
+renvoie vers le diag et cette étude ; aucun code ne devine d'offset.
+
+**Voie restante : (b) `CMD_PROC_ELF_RPC`.** Un stub ELF autonome, chargé et
+exécuté par le plugin noyau (qui résout ses propres imports), appelle lui-même
+`sceKernelLoadStartModule` et rend compte. Il **ne nécessite pas** de
+`--loader-addr` et contourne entièrement la résolution par en-tête. C'est un
+acte d'**exécution** (write + run dans le process) : premier acte à n'engager
+qu'avec accord explicite, jeu en Histoire hors ligne, sauvegarde faite.
+
 ## Bloquants restants
 
-1. **Adresse d'une primitive de chargement inconnue.** Confirmé ci-dessus :
-   le GOT du jeu ne la fournit pas (zéro en RAM) et
-   `sceKernelLoadStartModule` n'est pas importé. Aucune adresse ne doit être
-   devinée. Voies recommandées : (a) ou (b) de la section précédente.
+1. **Adresse d'une primitive de chargement inconnue.** `sceKernelLoadStartModule`
+   n'est pas importé par le jeu. Le re-test live (2 nov. 2026) lève le « GOT à
+   zéro » — l'ancre `sceKernelOpen` EST résolue vers `libkernel` — mais montre
+   que l'en-tête ELF du module n'est pas mappée, donc la voie (a) (résoudre via
+   la table d'exports lue en RAM) **est abandonnée**. Reste la voie (b)
+   `CMD_PROC_ELF_RPC`. Aucune adresse n'est devinée.
 2. **Chemin visible depuis le bac à sable du jeu.** Un chemin `/data/...`
    n'est pas garanti visible par un processus PS4 sous Kstuff Lite. À tester
    par un appel en lecture (par exemple `stat`) avant tout chargement.
@@ -162,12 +194,15 @@ Voies de chargement (inchangées, à départager après le re-test) :
 Un mod qu'on voit dans RDR2 est le sommet du projet ; il reste plusieurs
 maillons **non prouvés**, dont chacun exige le jeu lancé :
 
-1. **Résoudre `--loader-addr`** (recette ci-dessus, lecture seule). —
-   **outillé** (`tools/ps5debug_ng_rdr2_100_resolve_loader.py`), à exécuter en
-   live pour obtenir l'adresse réelle (encore non lancé sur console).
-2. **Faire tourner notre code** : `inject.py --arm` (CALL), ou repli
-   `CMD_PROC_ELF_RPC`. Preuve réelle = trace `[LML-RAGE-VFS] MODULE_ENTRY` et
-   un handle renvoyé. — non testé sur console.
+1. **Résoudre `--loader-addr`** (recette lecture seule). — **exécuté en live**
+   (2 nov. 2026, `diag_loader`) : **impasse**. L'ancre est résolue mais
+   l'en-tête ELF de `libkernel.sprx` n'est pas mappée, donc aucune résolution
+   par table d'exports en RAM sans deviner. `resolve_loader` n'est plus la voie.
+2. **Faire tourner notre code** : voie retenue **`CMD_PROC_ELF_RPC`** (stub ELF
+   autonome qui charge le PRX sans `--loader-addr`), le repli `inject.py --arm`
+   (CALL) restant tributaire d'une adresse qu'on ne sait pas résoudre en lecture
+   seule. Preuve réelle = trace `[LML-RAGE-VFS] MODULE_ENTRY` et un handle
+   renvoyé. — non testé sur console (premier acte d'exécution, accord requis).
 3. **Accepter le fake-SELF** sous Kstuff Lite pour un process PS4. — non testé.
 4. **Installer le détour `fiPackfile8`** 1.00 : le module actuel
    (`runtime/rage_vfs_redirect`) a tout le corps read-through mais

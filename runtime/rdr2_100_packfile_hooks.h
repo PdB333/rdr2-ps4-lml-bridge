@@ -23,12 +23,12 @@ extern "C" {
  *   - FAIL-CLOSED: redirection happens only when the caller declares
  *     abi_verified = 1. Until then every call is a transparent pass-through to
  *     the original handler, so the game's behaviour is preserved verbatim.
- *   - NO GUESSED ABI. Only Open(this, path, read_only) and
- *     Read(this, handle, buffer, size, extra) are statically recovered
- *     (orbis/LIVE_DETOUR_100.md). A bridge token therefore MUST be closeable:
- *     because this 2-slot detour does not yet hook seek/size/close, a bridge
- *     token is handed back to the game ONLY when the caller also declares
- *     lifecycle_verified = 1 (the full method set is hooked and verified).
+ *   - NO GUESSED ABI. Open/Read/Close/Seek/Size hook bodies all exist, but the
+ *     close/seek/size slots (19 / 17,18 / 22,23) are identified statically only
+ *     (orbis/LIVE_DETOUR_100.md) and not yet validated live. A bridge token MUST
+ *     be closeable/seekable/sizeable through our hooks, so a bridge token is
+ *     handed back to the game ONLY when the caller declares
+ *     lifecycle_verified = 1 (the full method set is hooked AND verified live).
  *     With lifecycle_verified = 0 the Open hook still consults the overlay but
  *     falls through to the original handle, so a mismatched handle can never
  *     reach an un-hooked native close/seek and crash the engine.
@@ -72,6 +72,8 @@ typedef struct LmlPackfileHooks {
     uint64_t passthrough_opens;
     uint64_t redirected_reads;
     uint64_t passthrough_reads;
+    uint64_t redirected_seeks;   /* bridge-token seeks served by the backend  */
+    uint64_t redirected_sizes;   /* bridge-token sizes served by the backend  */
 } LmlPackfileHooks;
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -111,6 +113,30 @@ LML_PACKFILE_EXPORT int64_t lml_packfile_hook_read(LmlPackfileHooks* hooks,
  * lifecycle ABI is verified. */
 LML_PACKFILE_EXPORT int lml_packfile_hook_close(LmlPackfileHooks* hooks,
                                                 uint64_t handle);
+
+/* Seek hook body: if `handle` is one of our bridge tokens, seek the overlay
+ * stream and write the resulting absolute offset to *out_result (returns
+ * LML_PACKFILE_OK). If it is a real game handle, returns LML_PACKFILE_NOT_BRIDGE
+ * and leaves *out_result untouched, so the caller forwards to the original seek.
+ *
+ * Both engine seek slots (17 = 32-bit offset, 18 = 64-bit) route here; the
+ * trampoline sign-extends the 32-bit offset into `offset`. `whence` is passed
+ * through to the backend verbatim: the engine's whence encoding is ASSUMED to
+ * match the backend's (POSIX SEEK_SET/CUR/END) and MUST be confirmed live before
+ * lifecycle_verified is set to 1. This body never runs for a real handle, and a
+ * bridge token is only ever handed out once lifecycle_verified == 1. */
+LML_PACKFILE_EXPORT int lml_packfile_hook_seek(LmlPackfileHooks* hooks,
+                                               uint64_t handle, int64_t offset,
+                                               int whence, int64_t* out_result);
+
+/* Size hook body: if `handle` is one of our bridge tokens, write the overlay
+ * file size to *out_result (returns LML_PACKFILE_OK). If it is a real game
+ * handle, returns LML_PACKFILE_NOT_BRIDGE and leaves *out_result untouched, so
+ * the caller forwards to the original size handler. Both size slots (22/23)
+ * route here. */
+LML_PACKFILE_EXPORT int lml_packfile_hook_size(LmlPackfileHooks* hooks,
+                                               uint64_t handle,
+                                               int64_t* out_result);
 
 /* True (1) when `handle` is a live bridge token this core handed out. */
 LML_PACKFILE_EXPORT int lml_packfile_is_bridge_token(const LmlPackfileHooks* h,

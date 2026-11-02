@@ -139,7 +139,15 @@ def parse_exports(conn: socket.socket, pid: int, base: int) -> dict[str, int]:
     """Parse an Orbis module's export table in RAM -> {nid: st_value}."""
     ehdr = read_mem(conn, pid, base, 64)
     if ehdr[:4] != b"\x7fELF":
-        raise ValueError("Pas d'en-tete ELF a la base du module")
+        # Confirmed live (ps5-1, 2 nov. 2026) : le chargeur Orbis mappe les
+        # SPRX segment par segment sans l'en-tete ELF ; la base du module est
+        # le segment r-x (padding int3 0xcc), pas l'ehdr. Cette voie de
+        # resolution par en-tete est donc un cul-de-sac sur Orbis -- diagnostic
+        # complet via tools/ps5debug_ng_rdr2_100_diag_loader.py. Repli : charger
+        # un stub autonome par CMD_PROC_ELF_RPC (cf. PRX_LOADING_STUDY_100.md).
+        raise ValueError(
+            "Pas d'en-tete ELF a la base du module (chargeur Orbis segment par "
+            "segment, confirme live) ; cf. diag_loader et PRX_LOADING_STUDY_100")
     phoff = struct.unpack_from("<Q", ehdr, 32)[0]
     phentsize = struct.unpack_from("<H", ehdr, 54)[0]
     phnum = struct.unpack_from("<H", ehdr, 56)[0]

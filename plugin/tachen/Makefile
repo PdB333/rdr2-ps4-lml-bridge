@@ -1,14 +1,16 @@
-# Build du plugin TacHen « preuve de vie » LML (RDR2 PS4 1.00).
+# OBSOLETE -- recette PS5 (sie-ps5 + make_fself), ABANDONNEE.
 #
-# ATTENTION : sous Windows, le chemin canonique VERIFIE est build.cmd, PAS ce
-# Makefile. Les wrappers prospero-clang/-lld du SDK ne conviennent pas pour un
-# objet partage (scripts Linux ; prospero-lld.exe force -pie, incompatible
-# --shared). build.cmd appelle clang puis ld.lld directement, patche e_type en
-# ET_SCE_DYNAMIC (0xfe18), puis make_fself --ptype fake.
+# Le module PS5 produit ici passait le controle de conteneur de TacHen mais etait
+# REJETE par le loader kernel dans le process PS4 de RDR2 (runtime.log :
+# 0x80020016 EINVAL, module_start jamais execute). RDR2 est un titre PS4 : le
+# format attendu est un PRX PS4 OpenOrbis.
 #
-# Cette cible Make est conservee pour un hote Linux ou prospero.mk fonctionne,
-# mais elle n'a PAS ete validee et ne fait pas le patch e_type ni le lien SCE
-# explicite. Reporter la recette de build.cmd si on veut la fiabiliser.
+# >>> BUILD CANONIQUE VERIFIE : plugin/tachen/build_ps4.ps1 <<<
+#     (clang --target=x86_64-pc-freebsd12-elf + crtlib.o + create-fself)
+#
+# Ce Makefile reference aussi l'ancien lml_plugin.c (module_start fait main) ;
+# la source actuelle delegue le scaffolding a crtlib.o et ne compilera PAS tel
+# quel ici. Conserve uniquement comme trace de l'impasse PS5.
 
 ifndef PS5_PAYLOAD_SDK
     $(error PS5_PAYLOAD_SDK est indefini : exporter la racine du ps5-payload-sdk)

@@ -1,4 +1,4 @@
-# Installer et charger le plugin `.sprx` via TacHen (RDR2 PS4 1.00)
+# Installer et charger le plugin `.prx` via TacHen (RDR2 PS4 1.00)
 
 Procédure de chargement sur la vraie console. Chaque étape est tirée du dépôt
 TacHen (`README.md`, `docs/PRX-CONTAINER-COMPATIBILITY.md`) — **rien n'est
@@ -8,8 +8,9 @@ deviné**. Ce qui n'est pas encore prouvé sur console est signalé « À VÉRIF
 
 - PS5 **FW 13.40**, jailbreak Y2JB + Kstuff Lite + ShadowMountPlus + Payload
   Manager (le setup du propriétaire). TacHen est compatible 13.40.
-- Le `.sprx` produit par [`build.cmd`](build.cmd) : `lml_plugin.sprx`
-  (18720 o, magic `0x1d3d154f`), déjà accepté par le validateur `tac_prx_inspect`.
+- Le `.prx` produit par [`build_ps4.ps1`](build_ps4.ps1) : `lml_plugin_ps4.prx`
+  (52736 o, magic `0x1d3d154f`), PRX PS4 OpenOrbis déjà accepté par le
+  validateur `tac_prx_inspect` (sans duplicata de PT_LOAD).
 - RDR2 **CUSA08519, version 01.00 exacte** installé.
 
 ## 1. Lancer TacHen
@@ -23,11 +24,11 @@ deviné**. Ce qui n'est pas encore prouvé sur console est signalé « À VÉRIF
 3. Ouvrir l'interface : manette **L3 + R3**, ou le web **`http://IP-PS5:8780`**
    depuis un PC/téléphone sur le même réseau.
 
-## 2. Copier le `.sprx` sur la console
+## 2. Copier le `.prx` sur la console
 
 Au choix :
 
-- **Clé USB** : copier `lml_plugin.sprx` sur une clé, la brancher.
+- **Clé USB** : copier `lml_plugin_ps4.prx` sur une clé, la brancher.
 - **FTP TacHen** : port **2122**, racine `/data/tachen/share`, login `tachen`
   ou `anonymous` (n'importe quel mot de passe), réseau local de confiance.
 - **Onglet Transfers** du web TacHen : navigateur deux volets USB ↔ stockage
@@ -42,7 +43,7 @@ Au choix :
 
 Dans **Plugins** (manette ou web) :
 
-1. **Add from storage** / importer → sélectionner `lml_plugin.sprx` (USB ou
+1. **Add from storage** / importer → sélectionner `lml_plugin_ps4.prx` (USB ou
    stockage console).
 2. **Enregistrer pour le jeu et la version** : choisir **RDR2 CUSA08519**,
    version **01.00**. C'est le jeu sélectionné qui fixe la plateforme : le magic
@@ -51,7 +52,7 @@ Dans **Plugins** (manette ou web) :
    version **exacte**.
 
 Si l'import est refusé, TacHen affiche l'erreur détaillée (ex. tailles
-déclarée/réelle). Ne pas renommer/tronquer le `.sprx` pour contourner un
+déclarée/réelle). Ne pas renommer/tronquer le `.prx` pour contourner un
 contrôle — corriger le build.
 
 ## 4. Lancer le jeu, PUIS charger le plugin
@@ -60,7 +61,7 @@ L'autostart des plugins a été retiré par TacHen (« It's recommended to not s
 plugins until you are in game »).
 
 1. Lancer **RDR2 1.00**, laisser charger le **mode Story**.
-2. Dans **Plugins**, charger manuellement `lml_plugin` (ou via un loadout).
+2. Dans **Plugins**, charger manuellement `lml_plugin_ps4` (ou via un loadout).
 3. TacHen crée un pthread appartenant au jeu et y exécute `module_start`
    (retour non nul = échec ; un échec/timeout reste suivi jusqu'à la fermeture
    du jeu). Un éventuel couple `plugin_load`/`plugin_unload` servirait

@@ -1,84 +1,97 @@
 /* Plugin TacHen minimal « preuve de vie » pour RDR2 PS4 1.00 (CUSA08519).
  *
- * But du spike : prouver que NOTRE code s'exécute dans le process du jeu via le
- * chargeur de plugins TacHen, AVANT de greffer quoi que ce soit sur la mémoire
- * du jeu. Ce module ne touche PAS la mémoire de RDR2 : il écrit seulement un
- * marqueur dans /data (stockage utilisateur) pour confirmer le chargement.
+ * But : prouver que NOTRE code s'exécute dans le process du jeu via le chargeur
+ * TacHen, SANS toucher la mémoire de RDR2. Build = PRX PS4 (OpenOrbis), car
+ * RDR2 est un titre PS4 ; un module PS5 (sie-ps5) est rejeté par le loader
+ * kernel (EINVAL 0x80020016). Voir build_ps4.ps1.
  *
- * Entrée : convention de module SCE PRX (comme sur PS4/PS5). TacHen appelle
- *   module_start sur un pthread du jeu ; un résultat non nul = échec de charge.
- *   La paire module_stop est appelée au déchargement.
+ * Scaffolding fourni par le CRT OpenOrbis (crtlib.o), PAS fait main : c'est le
+ * CRT qui fournit module_start / module_stop / _init / _fini, la section
+ * .data.sce_module_param et le parcours de .init_array. Motif : un
+ * .data.sce_module_param écrit à la main faisait dédoubler par create-fself le
+ * PT_LOAD inscriptible (deux segments identiques superposés), ce qui faisait
+ * échouer le contrôle de conteneur de TacHen (tac_prx_inspect, overlap).
+ * crtlib.o produit une disposition propre (cf. orbis/build_loader_smoke.ps1,
+ * seul PRX OpenOrbis sans duplicata). Le module_start du CRT parcourt
+ * __init_array_start/end : notre constructeur ci-dessous s'y exécute.
  *
- * Imports (open/write/close, clock_gettime) : résolus par le chargeur TacHen
- *   (libelfldr + sceKernelLoadStartModule) contre libSceLibcInternal, PAS via
- *   payload_args/dlsym. C'est pour ça qu'on compile un vrai SELF à stubs
- *   d'import et non un payload autonome ELF_RPC.
+ * Imports : UNIQUEMENT libkernel (sceKernel*), aucune libc (la libc rajoute du
+ * .bss qui relance le dédoublement).
  *
- * Quand le spike sera validé, le point marqué HOOK ci-dessous appellera
- *   rdr2_100_packfile_hooks (armement du détour fiPackfile8). Rien de tout cela
- *   n'est fait ici : la mémoire du jeu reste intacte tant que les signatures
+ * Preuve : best-effort sur deux canaux indépendants du sandbox —
+ *   1) sceKernelDebugOutText (sortie debug/klog),
+ *   2) fichier /data/lml_bridge_spike.log (peut être jailé dans le sandbox).
+ * Le juge primaire reste le runtime.log de TacHen (résultat de l'initialiseur).
+ *
+ * Quand le spike sera validé en jeu, le point HOOK appellera
+ *   rdr2_100_packfile_hooks_arm(). Interdit tant que les signatures fiPackfile8
  *   ne sont pas validées en live.
  */
-#include <fcntl.h>
-#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
+#include <stddef.h>
+#include <orbis/libkernel.h>
 
-#define LML_TAG      "[LML]"
+/* Drapeaux open() FreeBSD (cf. SDK include/fcntl.h + bits/fcntl.h). */
+#define LML_O_WRONLY 0x0001
+#define LML_O_CREAT  0x0200
+#define LML_O_APPEND 0x0008
 #define LML_LOGPATH  "/data/lml_bridge_spike.log"
 
-/* Ecrit une ligne horodatée dans le marqueur. Best-effort : si /data n'est pas
- * accessible, on échoue silencieusement (le module ne doit pas planter le jeu).
- */
+/* Longueur d'une C-string, sans libc. */
+static size_t
+lml_len(const char* s) {
+  size_t n = 0;
+  while (s[n]) {
+    ++n;
+  }
+  return n;
+}
+
+/* Canal 1 : sortie debug console (indépendante du système de fichiers). */
 static void
-lml_log(const char* msg) {
-  int fd = open(LML_LOGPATH, O_WRONLY | O_CREAT | O_APPEND, 0644);
+lml_debug(const char* text) {
+  (void)sceKernelDebugOutText(0, text);
+}
+
+/* Canal 2 : marqueur fichier, best-effort (peut échouer en sandbox jailé).
+ * I/O via libkernel uniquement : préfixe horodaté brut (process time) suivi du
+ * message, sans snprintf ni libc. */
+static void
+lml_file(const char* msg) {
+  int fd = sceKernelOpen(LML_LOGPATH,
+                         LML_O_WRONLY | LML_O_CREAT | LML_O_APPEND, 0644);
   if (fd < 0) {
     return;
   }
-
-  struct timespec ts;
-  ts.tv_sec = 0;
-  ts.tv_nsec = 0;
-  clock_gettime(CLOCK_REALTIME, &ts);
-
-  char line[256];
-  int n = snprintf(line, sizeof(line), "%s %lld.%03ld %s\n", LML_TAG,
-                   (long long)ts.tv_sec, ts.tv_nsec / 1000000L, msg);
-  if (n > 0) {
-    if (n > (int)sizeof(line)) {
-      n = (int)sizeof(line);
+  /* Horodatage brut : « [LML] <processtime> » en décimal, sans libc. */
+  uint64_t t = sceKernelGetProcessTime();
+  char num[24];
+  int i = (int)sizeof(num);
+  num[--i] = ' ';
+  if (t == 0) {
+    num[--i] = '0';
+  } else {
+    while (t && i > 0) {
+      num[--i] = (char)('0' + (int)(t % 10));
+      t /= 10;
     }
-    (void)write(fd, line, (size_t)n);
   }
-  close(fd);
+  const char* tag = "[LML] ";
+  (void)sceKernelWrite(fd, tag, lml_len(tag));
+  (void)sceKernelWrite(fd, num + i, sizeof(num) - (size_t)i);
+  (void)sceKernelWrite(fd, msg, lml_len(msg));
+  (void)sceKernelWrite(fd, "\n", 1);
+  (void)sceKernelClose(fd);
 }
 
-/* Entrée du module. Exécutée par TacHen sur un thread du jeu. */
-int
-module_start(size_t argc, const void* argv) {
-  (void)argc;
-  (void)argv;
+/* Exécuté par le module_start du CRT via .init_array, sur un thread du jeu. */
+__attribute__((constructor)) static void
+lml_proof_of_life(void) {
+  lml_debug("[LML] module_start: notre code tourne dans le process RDR2 1.00\n");
+  lml_file("module_start: notre code tourne dans le process RDR2 1.00");
 
-  lml_log("module_start: notre code tourne dans le process RDR2 1.00");
-
-  /* HOOK (plus tard, apres validation live des signatures fiPackfile8) :
+  /* HOOK (plus tard, après validation live des signatures fiPackfile8) :
    *   #include "../../runtime/rdr2_100_packfile_hooks.h"
    *   rdr2_100_packfile_hooks_arm();
-   * Interdit tant que le detour n'est pas valide en live. */
-
-  return 0; /* succes : TacHen garde le module resident */
-}
-
-/* Sortie du module (déchargement par TacHen). */
-int
-module_stop(size_t argc, const void* argv) {
-  (void)argc;
-  (void)argv;
-
-  lml_log("module_stop: dechargement du plugin");
-  return 0;
+   * Interdit tant que le détour n'est pas validé en live. */
 }
